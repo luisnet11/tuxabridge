@@ -6,8 +6,197 @@
     <title>Tuxachain - Aurora Intents Bridge</title>
     <!-- Importar Ethers.js v6 (Última versión) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+    
+    <!-- ESTILOS CSS -->
     <style>
-        /* === INSERTA AQUÍ LA PARTE 2: CSS === */
+        :root {
+            --primary-color: #70ffaf;
+            --primary-dark: #4bc985;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #1a1a1a;
+            --text-muted: #6e6e6e;
+            --border-color: #e0e0e0;
+            --error-bg: #ffeded;
+            --error-text: #d32f2f;
+            --console-bg: #1e1e1e;
+            --console-text: #00ff00;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .btn {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            border-color: var(--text-muted);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: #000;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+
+        .btn-large {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.1rem;
+            margin-top: 10px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        .swap-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .alert {
+            background: var(--error-bg);
+            color: var(--error-text);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .input-group {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .input-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .input-row input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 1.5rem;
+            color: var(--text-main);
+            width: 100%;
+            outline: none;
+        }
+
+        .input-row input:disabled {
+            color: var(--text-muted);
+        }
+
+        .input-row select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .swap-divider {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .logs-section h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .logs-console {
+            background: var(--console-bg);
+            color: var(--console-text);
+            padding: 12px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -55,424 +244,228 @@
         </section>
     </div>
 
+    <!-- LÓGICA JAVASCRIPT -->
     <script>
-        // === INSERTA AQUÍ LA PARTE 3: JAVASCRIPT ===
+        // --- CONFIGURACIÓN TUXACHAIN Y AURORA INTENTS ---
+        const CONFIG = {
+            tuxachain: {
+                chainId: 1313161955,
+                chainIdHex: '0x4e4542e3',
+                chainName: 'Tuxachain',
+                rpcUrl: 'https://0x4e4542e3.rpc.aurora-cloud.dev',
+                explorerUrl: 'https://0x4e4542e3.explorer.aurora-cloud.dev',
+                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
+            },
+            api: {
+                endpoint: 'https://intents-api.aurora.dev/api',
+                key: 'a1977096-6071-444f-9895-6525b15b3197'
+            },
+            tokens: [
+                { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
+                { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 18 },
+                { symbol: 'AURORA', address: '0x8BEc47865aDe3B172A928df8f990Bc7f2A3b9f79', decimals: 18 },
+                { symbol: 'USDt', address: '0x80Da25Da4D783E57d2FCdA0436873A193a4BEccF', decimals: 6 }
+            ]
+        };
+
+        // ABI mínimo para transferencia ERC20
+        const ERC20_ABI = [
+            "function transfer(address to, uint256 amount) returns (bool)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        // --- ESTADO GLOBAL ---
+        let provider;
+        let signer;
+        let userAddress = null;
+
+        // --- ELEMENTOS DEL DOM ---
+        const btnConnect = document.getElementById('connect-wallet-btn');
+        const btnSwap = document.getElementById('swap-btn');
+        const networkWarning = document.getElementById('network-warning');
+        const btnSwitchNetwork = document.getElementById('switch-network-btn');
+        const logsConsole = document.getElementById('logs-console');
+        const tokenInSelect = document.getElementById('token-in');
+        const tokenOutSelect = document.getElementById('token-out');
+        const amountInInput = document.getElementById('amount-in');
+        const amountOutInput = document.getElementById('amount-out');
+
+        // --- UTILIDADES ---
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            logsConsole.innerHTML += `[${time}] ${msg}\n`;
+            logsConsole.scrollTop = logsConsole.scrollHeight;
+        }
+
+        function initUI() {
+            CONFIG.tokens.forEach(t => {
+                tokenInSelect.add(new Option(t.symbol, t.address));
+                tokenOutSelect.add(new Option(t.symbol, t.address));
+            });
+            tokenOutSelect.selectedIndex = 1; 
+        }
+
+        // --- LÓGICA WEB3 CON ETHERS V6 ---
+        async function connectWallet() {
+            if (!window.ethereum) {
+                log("❌ Error: No se detectó window.ethereum (Instala MetaMask).");
+                return;
+            }
+            
+            try {
+                provider = new ethers.BrowserProvider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                const shortAddr = `${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
+                btnConnect.innerText = shortAddr;
+                log(`✅ Conectado: ${userAddress}`);
+                
+                await checkNetwork();
+                
+                window.ethereum.on('accountsChanged', () => window.location.reload());
+                window.ethereum.on('chainChanged', () => window.location.reload());
+                
+            } catch (err) {
+                log(`❌ Error al conectar: ${err.message}`);
+            }
+        }
+
+        async function checkNetwork() {
+            const network = await provider.getNetwork();
+            if (Number(network.chainId) !== CONFIG.tuxachain.chainId) {
+                networkWarning.classList.remove('hidden');
+                btnSwap.disabled = true;
+                log("⚠️ Red incorrecta detectada.");
+            } else {
+                networkWarning.classList.add('hidden');
+                btnSwap.disabled = false;
+                log("✅ Conectado a Tuxachain.");
+            }
+        }
+
+        async function switchNetwork() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: CONFIG.tuxachain.chainIdHex }],
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: CONFIG.tuxachain.chainIdHex,
+                                chainName: CONFIG.tuxachain.chainName,
+                                nativeCurrency: CONFIG.tuxachain.nativeCurrency,
+                                rpcUrls: [CONFIG.tuxachain.rpcUrl],
+                                blockExplorerUrls: [CONFIG.tuxachain.explorerUrl]
+                            }],
+                        });
+                    } catch (addError) {
+                        log(`❌ Error al agregar red: ${addError.message}`);
+                    }
+                } else {
+                    log(`❌ Error al cambiar red: ${switchError.message}`);
+                }
+            }
+        }
+
+        // --- LÓGICA DE LA API DE AURORA INTENTS ---
+        async function apiCall(path, body) {
+            const response = await fetch(`${CONFIG.api.endpoint}${path}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${CONFIG.api.key}`
+                },
+                body: JSON.stringify(body)
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API Error (${response.status}): ${errText}`);
+            }
+            return response.json();
+        }
+
+        // --- FLUJO DE SWAP / BRIDGE (ETHERS V6) ---
+        async function executeSwap() {
+            const amountIn = amountInInput.value;
+            const tokenIn = tokenInSelect.value;
+            const tokenOut = tokenOutSelect.value;
+            const tokenInData = CONFIG.tokens.find(t => t.address === tokenIn);
+
+            if (!amountIn || amountIn <= 0) {
+                log("❌ Ingresa una cantidad válida.");
+                return;
+            }
+
+            try {
+                btnSwap.disabled = true;
+                btnSwap.innerText = "Procesando...";
+
+                const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
+
+                // 1. Obtener Cotización (Quote)
+                log("🔄 1/4 Solicitando cotización a Aurora Intents...");
+                const quoteReq = {
+                    from_token: tokenIn,
+                    to_token: tokenOut,
+                    amount: amountWei.toString(),
+                    chain_id: CONFIG.tuxachain.chainId
+                };
+                const quoteRes = await apiCall('/quote', quoteReq);
+                log(`✅ Cotización obtenida: ID ${quoteRes.id || 'N/A'}`);
+                amountOutInput.value = quoteRes.expected_output || "Cotizado";
+
+                // 2. Obtener Dirección Intermediaria
+                log("🔄 2/4 Generando dirección de depósito...");
+                const depositReq = { 
+                    quote_id: quoteRes.id,
+                    user_address: userAddress
+                };
+                const depositRes = await apiCall('/deposit-address', depositReq);
+                const intermediaryAddress = depositRes.deposit_address;
+                log(`✅ Dirección intermediaria: ${intermediaryAddress}`);
+
+                // 3. Transferir Tokens al Intermediario
+                log(`🔄 3/4 Transfiriendo ${amountIn} ${tokenInData.symbol}...`);
+                
+                const tokenContract = new ethers.Contract(tokenIn, ERC20_ABI, signer);
+                const tx = await tokenContract.transfer(intermediaryAddress, amountWei);
+                
+                log(`⏳ Esperando confirmación (Tx: ${tx.hash.substring(0,8)}...)...`);
+                const receipt = await tx.wait();
+                log(`✅ Transferencia confirmada en bloque ${receipt.blockNumber}`);
+
+                // 4. Notificar a la API (Settle)
+                log("🔄 4/4 Notificando depósito (Settle)...");
+                const settleReq = {
+                    quote_id: quoteRes.id,
+                    tx_hash: tx.hash,
+                    deposit_address: intermediaryAddress
+                };
+                await apiCall('/settle', settleReq);
+                log("🎉 ¡Intercambio completado y notificado exitosamente!");
+
+            } catch (error) {
+                log(`❌ Error en el flujo: ${error.message}`);
+                console.error(error);
+            } finally {
+                btnSwap.disabled = false;
+                btnSwap.innerText = "Intercambiar";
+            }
+        }
+
+        // --- LISTENERS ---
+        window.addEventListener('DOMContentLoaded', initUI);
+        btnConnect.addEventListener('click', connectWallet);
+        btnSwitchNetwork.addEventListener('click', switchNetwork);
+        btnSwap.addEventListener('click', executeSwap);
     </script>
 </body>
 </html>
-:root {
-    --primary-color: #70ffaf;
-    --primary-dark: #4bc985;
-    --bg-color: #f4f7f6;
-    --card-bg: #ffffff;
-    --text-main: #1a1a1a;
-    --text-muted: #6e6e6e;
-    --border-color: #e0e0e0;
-    --error-bg: #ffeded;
-    --error-text: #d32f2f;
-    --console-bg: #1e1e1e;
-    --console-text: #00ff00;
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
-}
-
-.app-container {
-    width: 100%;
-    max-width: 480px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-}
-
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-}
-
-.btn {
-    cursor: pointer;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 16px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    transition: all 0.2s ease;
-}
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.btn-outline {
-    background: transparent;
-    border: 2px solid var(--border-color);
-    color: var(--text-main);
-}
-
-.btn-outline:hover:not(:disabled) {
-    border-color: var(--text-muted);
-}
-
-.btn-primary {
-    background: var(--primary-color);
-    color: #000;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background: var(--primary-dark);
-}
-
-.btn-large {
-    width: 100%;
-    padding: 16px;
-    font-size: 1.1rem;
-    margin-top: 10px;
-}
-
-.btn-small {
-    padding: 6px 12px;
-    font-size: 0.85rem;
-    margin-top: 8px;
-}
-
-.swap-card {
-    background: var(--card-bg);
-    border-radius: 20px;
-    padding: 24px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.alert {
-    background: var(--error-bg);
-    color: var(--error-text);
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    text-align: center;
-}
-
-.hidden {
-    display: none !important;
-}
-
-.input-group {
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px;
-}
-
-.input-group label {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    display: block;
-}
-
-.input-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.input-row input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    font-size: 1.5rem;
-    color: var(--text-main);
-    width: 100%;
-    outline: none;
-}
-
-.input-row input:disabled {
-    color: var(--text-muted);
-}
-
-.input-row select {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    font-weight: 600;
-    cursor: pointer;
-    outline: none;
-}
-
-.swap-divider {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.logs-section h3 {
-    font-size: 1rem;
-    margin-bottom: 8px;
-}
-
-.logs-console {
-    background: var(--console-bg);
-    color: var(--console-text);
-    padding: 12px;
-    border-radius: 12px;
-    font-family: monospace;
-    font-size: 0.85rem;
-    height: 150px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-// --- CONFIGURACIÓN TUXACHAIN Y AURORA INTENTS ---
-const CONFIG = {
-    tuxachain: {
-        chainId: 1313161955,
-        chainIdHex: '0x4e4542e3',
-        chainName: 'Tuxachain',
-        rpcUrl: 'https://0x4e4542e3.rpc.aurora-cloud.dev',
-        explorerUrl: 'https://0x4e4542e3.explorer.aurora-cloud.dev',
-        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
-    },
-    api: {
-        endpoint: 'https://intents-api.aurora.dev/api',
-        key: 'a1977096-6071-444f-9895-6525b15b3197'
-    },
-    tokens: [
-        { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
-        { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 18 },
-        { symbol: 'AURORA', address: '0x8BEc47865aDe3B172A928df8f990Bc7f2A3b9f79', decimals: 18 },
-        { symbol: 'USDt', address: '0x80Da25Da4D783E57d2FCdA0436873A193a4BEccF', decimals: 6 }
-    ]
-};
-
-// ABI mínimo para transferencia ERC20
-const ERC20_ABI = [
-    "function transfer(address to, uint256 amount) returns (bool)",
-    "function decimals() view returns (uint8)"
-];
-
-// --- ESTADO GLOBAL ---
-let provider;
-let signer;
-let userAddress = null;
-
-// --- ELEMENTOS DEL DOM ---
-const btnConnect = document.getElementById('connect-wallet-btn');
-const btnSwap = document.getElementById('swap-btn');
-const networkWarning = document.getElementById('network-warning');
-const btnSwitchNetwork = document.getElementById('switch-network-btn');
-const logsConsole = document.getElementById('logs-console');
-const tokenInSelect = document.getElementById('token-in');
-const tokenOutSelect = document.getElementById('token-out');
-const amountInInput = document.getElementById('amount-in');
-const amountOutInput = document.getElementById('amount-out');
-
-// --- UTILIDADES ---
-function log(msg) {
-    const time = new Date().toLocaleTimeString();
-    logsConsole.innerHTML += `[${time}] ${msg}\n`;
-    logsConsole.scrollTop = logsConsole.scrollHeight;
-}
-
-function initUI() {
-    CONFIG.tokens.forEach(t => {
-        tokenInSelect.add(new Option(t.symbol, t.address));
-        tokenOutSelect.add(new Option(t.symbol, t.address));
-    });
-    tokenOutSelect.selectedIndex = 1; 
-}
-
-// --- LÓGICA WEB3 CON ETHERS V6 ---
-async function connectWallet() {
-    if (!window.ethereum) {
-        log("❌ Error: No se detectó window.ethereum (Instala MetaMask).");
-        return;
-    }
-    
-    try {
-        // En Ethers v6 se usa BrowserProvider en lugar de Web3Provider
-        provider = new ethers.BrowserProvider(window.ethereum);
-        
-        await provider.send("eth_requestAccounts", []);
-        
-        // En Ethers v6 getSigner() es una función asíncrona
-        signer = await provider.getSigner();
-        userAddress = await signer.getAddress();
-        
-        const shortAddr = `${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
-        btnConnect.innerText = shortAddr;
-        log(`✅ Conectado: ${userAddress}`);
-        
-        await checkNetwork();
-        
-        window.ethereum.on('accountsChanged', () => window.location.reload());
-        window.ethereum.on('chainChanged', () => window.location.reload());
-        
-    } catch (err) {
-        log(`❌ Error al conectar: ${err.message}`);
-    }
-}
-
-async function checkNetwork() {
-    const network = await provider.getNetwork();
-    // En v6 network.chainId es de tipo BigInt
-    if (Number(network.chainId) !== CONFIG.tuxachain.chainId) {
-        networkWarning.classList.remove('hidden');
-        btnSwap.disabled = true;
-        log("⚠️ Red incorrecta detectada.");
-    } else {
-        networkWarning.classList.add('hidden');
-        btnSwap.disabled = false;
-        log("✅ Conectado a Tuxachain.");
-    }
-}
-
-async function switchNetwork() {
-    try {
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: CONFIG.tuxachain.chainIdHex }],
-        });
-    } catch (switchError) {
-        if (switchError.code === 4902) {
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                        chainId: CONFIG.tuxachain.chainIdHex,
-                        chainName: CONFIG.tuxachain.chainName,
-                        nativeCurrency: CONFIG.tuxachain.nativeCurrency,
-                        rpcUrls: [CONFIG.tuxachain.rpcUrl],
-                        blockExplorerUrls: [CONFIG.tuxachain.explorerUrl]
-                    }],
-                });
-            } catch (addError) {
-                log(`❌ Error al agregar red: ${addError.message}`);
-            }
-        } else {
-            log(`❌ Error al cambiar red: ${switchError.message}`);
-        }
-    }
-}
-
-// --- LÓGICA DE LA API DE AURORA INTENTS ---
-async function apiCall(path, body) {
-    const response = await fetch(`${CONFIG.api.endpoint}${path}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${CONFIG.api.key}`
-        },
-        body: JSON.stringify(body)
-    });
-    
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`API Error (${response.status}): ${errText}`);
-    }
-    return response.json();
-}
-
-// --- FLUJO DE SWAP / BRIDGE (ETHERS V6) ---
-async function executeSwap() {
-    const amountIn = amountInInput.value;
-    const tokenIn = tokenInSelect.value;
-    const tokenOut = tokenOutSelect.value;
-    const tokenInData = CONFIG.tokens.find(t => t.address === tokenIn);
-
-    if (!amountIn || amountIn <= 0) {
-        log("❌ Ingresa una cantidad válida.");
-        return;
-    }
-
-    try {
-        btnSwap.disabled = true;
-        btnSwap.innerText = "Procesando...";
-
-        // En v6 parseUnits está directamente en 'ethers' y retorna un BigInt
-        const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
-
-        // 1. Obtener Cotización (Quote)
-        log("🔄 1/4 Solicitando cotización a Aurora Intents...");
-        const quoteReq = {
-            from_token: tokenIn,
-            to_token: tokenOut,
-            amount: amountWei.toString(),
-            chain_id: CONFIG.tuxachain.chainId
-        };
-        const quoteRes = await apiCall('/quote', quoteReq);
-        log(`✅ Cotización obtenida: ID ${quoteRes.id || 'N/A'}`);
-        amountOutInput.value = quoteRes.expected_output || "Cotizado";
-
-        // 2. Obtener Dirección Intermediaria
-        log("🔄 2/4 Generando dirección de depósito...");
-        const depositReq = { 
-            quote_id: quoteRes.id,
-            user_address: userAddress
-        };
-        const depositRes = await apiCall('/deposit-address', depositReq);
-        const intermediaryAddress = depositRes.deposit_address;
-        log(`✅ Dirección intermediaria: ${intermediaryAddress}`);
-
-        // 3. Transferir Tokens al Intermediario
-        log(`🔄 3/4 Transfiriendo ${amountIn} ${tokenInData.symbol}...`);
-        
-        const tokenContract = new ethers.Contract(tokenIn, ERC20_ABI, signer);
-        const tx = await tokenContract.transfer(intermediaryAddress, amountWei);
-        
-        log(`⏳ Esperando confirmación (Tx: ${tx.hash.substring(0,8)}...)...`);
-        
-        // En v6 tx.wait() sigue siendo la forma de esperar la confirmación
-        const receipt = await tx.wait();
-        log(`✅ Transferencia confirmada en bloque ${receipt.blockNumber}`);
-
-        // 4. Notificar a la API (Settle)
-        log("🔄 4/4 Notificando depósito (Settle)...");
-        const settleReq = {
-            quote_id: quoteRes.id,
-            tx_hash: tx.hash,
-            deposit_address: intermediaryAddress
-        };
-        await apiCall('/settle', settleReq);
-        log("🎉 ¡Intercambio completado y notificado exitosamente!");
-
-    } catch (error) {
-        log(`❌ Error en el flujo: ${error.message}`);
-        console.error(error);
-    } finally {
-        btnSwap.disabled = false;
-        btnSwap.innerText = "Intercambiar";
-    }
-}
-
-// --- LISTENERS ---
-window.addEventListener('DOMContentLoaded', initUI);
-btnConnect.addEventListener('click', connectWallet);
-btnSwitchNetwork.addEventListener('click', switchNetwork);
-btnSwap.addEventListener('click', executeSwap);
-      
