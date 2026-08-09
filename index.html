@@ -136,11 +136,29 @@
             padding: 16px;
         }
 
-        .input-group label {
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .input-header label {
             font-size: 0.85rem;
             color: var(--text-muted);
-            margin-bottom: 8px;
-            display: block;
+        }
+
+        .balance-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .balance-text:hover {
+            color: var(--text-main);
+            text-decoration: underline;
         }
 
         .input-row {
@@ -215,7 +233,10 @@
             </div>
 
             <div class="input-group">
-                <label>Enviar (Desde Tuxachain)</label>
+                <div class="input-header">
+                    <label>Enviar (Desde Tuxachain)</label>
+                    <span id="user-balance" class="balance-text" title="Haz clic para usar el saldo máximo">Saldo: -</span>
+                </div>
                 <div class="input-row">
                     <input type="number" id="amount-in" placeholder="0.0" min="0" step="any">
                     <select id="token-in"></select>
@@ -227,7 +248,9 @@
             </div>
 
             <div class="input-group">
-                <label>Recibir</label>
+                <div class="input-header">
+                    <label>Recibir</label>
+                </div>
                 <div class="input-row">
                     <input type="text" id="amount-out" placeholder="Cotización automática" disabled>
                     <select id="token-out"></select>
@@ -257,7 +280,8 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                endpoint: 'https://intents-api.aurora.dev/api',
+                // Endpoint corregido sin el sufijo extra /api
+                endpoint: 'https://intents-api.aurora.dev',
                 key: 'a1977096-6071-444f-9895-6525b15b3197'
             },
             tokens: [
@@ -268,16 +292,18 @@
             ]
         };
 
-        // ABI mínimo para transferencia ERC20
+        // ABI ERC20 con función balanceOf
         const ERC20_ABI = [
             "function transfer(address to, uint256 amount) returns (bool)",
-            "function decimals() view returns (uint8)"
+            "function decimals() view returns (uint8)",
+            "function balanceOf(address owner) view returns (uint256)"
         ];
 
         // --- ESTADO GLOBAL ---
         let provider;
         let signer;
         let userAddress = null;
+        let rawBalance = "0";
 
         // --- ELEMENTOS DEL DOM ---
         const btnConnect = document.getElementById('connect-wallet-btn');
@@ -289,6 +315,7 @@
         const tokenOutSelect = document.getElementById('token-out');
         const amountInInput = document.getElementById('amount-in');
         const amountOutInput = document.getElementById('amount-out');
+        const userBalanceSpan = document.getElementById('user-balance');
 
         // --- UTILIDADES ---
         function log(msg) {
@@ -304,6 +331,40 @@
             });
             tokenOutSelect.selectedIndex = 1; 
         }
+
+        // --- CONSULTA DE SALDO ---
+        async function updateBalance() {
+            if (!provider || !userAddress) {
+                userBalanceSpan.innerText = "Saldo: -";
+                return;
+            }
+
+            try {
+                const tokenAddress = tokenInSelect.value;
+                const tokenData = CONFIG.tokens.find(t => t.address === tokenAddress);
+                
+                const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+                const balanceWei = await tokenContract.balanceOf(userAddress);
+                
+                rawBalance = ethers.formatUnits(balanceWei, tokenData.decimals);
+                const displayBalance = parseFloat(rawBalance).toLocaleString('en-US', { maximumFractionDigits: 6 });
+                
+                userBalanceSpan.innerText = `Saldo: ${displayBalance} ${tokenData.symbol}`;
+            } catch (err) {
+                console.error("Error al obtener saldo:", err);
+                userBalanceSpan.innerText = "Saldo: Error";
+            }
+        }
+
+        // Auto-completar el saldo máximo al hacer clic en el texto
+        userBalanceSpan.addEventListener('click', () => {
+            if (rawBalance && rawBalance !== "0") {
+                amountInInput.value = rawBalance;
+            }
+        });
+
+        // Actualizar saldo al cambiar de token
+        tokenInSelect.addEventListener('change', updateBalance);
 
         // --- LÓGICA WEB3 CON ETHERS V6 ---
         async function connectWallet() {
@@ -338,11 +399,13 @@
             if (Number(network.chainId) !== CONFIG.tuxachain.chainId) {
                 networkWarning.classList.remove('hidden');
                 btnSwap.disabled = true;
+                userBalanceSpan.innerText = "Saldo: -";
                 log("⚠️ Red incorrecta detectada.");
             } else {
                 networkWarning.classList.add('hidden');
                 btnSwap.disabled = false;
                 log("✅ Conectado a Tuxachain.");
+                await updateBalance();
             }
         }
 
@@ -385,12 +448,10 @@
 
             const options = { method, headers };
 
-            // Petición GET envía parámetros en la Query URL
             if (method === 'GET' && params) {
                 const queryParams = new URLSearchParams(params).toString();
                 url += `?${queryParams}`;
             } else if (params) {
-                // Petición POST/PUT envía parámetros en el Body JSON
                 options.body = JSON.stringify(params);
             }
 
@@ -403,7 +464,7 @@
             return response.json();
         }
 
-        // --- FLUJO DE SWAP / BRIDGE (ETHERS V6) ---
+        // --- FLUJO DE SWAP / BRIDGE ---
         async function executeSwap() {
             const amountIn = amountInInput.value;
             const tokenIn = tokenInSelect.value;
@@ -421,7 +482,7 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
-                // 1. Obtener Cotización (Quote) mediante GET
+                // 1. Obtener Cotización (Quote)
                 log("🔄 1/4 Solicitando cotización a Aurora Intents...");
                 const quoteReq = {
                     from_token: tokenIn,
@@ -434,7 +495,7 @@
                 log(`✅ Cotización obtenida: ID ${quoteRes.id || 'N/A'}`);
                 amountOutInput.value = quoteRes.expected_output || "Cotizado";
 
-                // 2. Obtener Dirección Intermediaria (POST)
+                // 2. Obtener Dirección Intermediaria
                 log("🔄 2/4 Generando dirección de depósito...");
                 const depositReq = { 
                     quote_id: quoteRes.id,
@@ -454,7 +515,7 @@
                 const receipt = await tx.wait();
                 log(`✅ Transferencia confirmada en bloque ${receipt.blockNumber}`);
 
-                // 4. Notificar a la API (Settle - POST)
+                // 4. Notificar a la API (Settle)
                 log("🔄 4/4 Notificando depósito (Settle)...");
                 const settleReq = {
                     quote_id: quoteRes.id,
@@ -463,6 +524,9 @@
                 };
                 await apiCall('/settle', settleReq, 'POST');
                 log("🎉 ¡Intercambio completado y notificado exitosamente!");
+
+                // Actualizar saldo tras la transacción exitosa
+                await updateBalance();
 
             } catch (error) {
                 log(`❌ Error en el flujo: ${error.message}`);
@@ -481,3 +545,4 @@
     </script>
 </body>
 </html>
+
