@@ -280,7 +280,6 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                // Endpoint corregido sin el sufijo extra /api
                 endpoint: 'https://intents-api.aurora.dev',
                 key: 'a1977096-6071-444f-9895-6525b15b3197'
             },
@@ -356,14 +355,14 @@
             }
         }
 
-        // Auto-completar el saldo máximo al hacer clic en el texto
+        // Auto-completar saldo al hacer clic
         userBalanceSpan.addEventListener('click', () => {
             if (rawBalance && rawBalance !== "0") {
                 amountInInput.value = rawBalance;
             }
         });
 
-        // Actualizar saldo al cambiar de token
+        // Actualizar saldo al cambiar selección de token
         tokenInSelect.addEventListener('change', updateBalance);
 
         // --- LÓGICA WEB3 CON ETHERS V6 ---
@@ -438,7 +437,7 @@
         }
 
         // --- LÓGICA DE LA API DE AURORA INTENTS ---
-        async function apiCall(path, params = null, method = 'GET') {
+        async function apiCall(path, params = null, method = 'POST') {
             let url = `${CONFIG.api.endpoint}${path}`;
 
             const headers = {
@@ -482,7 +481,7 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
-                // 1. Obtener Cotización (Quote)
+                // 1. Obtener Cotización (Quote) mediante POST a /quote
                 log("🔄 1/4 Solicitando cotización a Aurora Intents...");
                 const quoteReq = {
                     from_token: tokenIn,
@@ -491,7 +490,8 @@
                     chain_id: CONFIG.tuxachain.chainId
                 };
                 
-                const quoteRes = await apiCall('/quote', quoteReq, 'GET');
+                // Petición POST a /quote
+                const quoteRes = await apiCall('/quote', quoteReq, 'POST');
                 log(`✅ Cotización obtenida: ID ${quoteRes.id || 'N/A'}`);
                 amountOutInput.value = quoteRes.expected_output || "Cotizado";
 
@@ -545,4 +545,3 @@
     </script>
 </body>
 </html>
-
