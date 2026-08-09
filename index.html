@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Protección extra (el Worker es la defensa real) -->
     <meta name="referrer" content="no-referrer">
-    
     <title>Tuxachain - Aurora Intents Bridge</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     
@@ -219,13 +219,11 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Encabezado y Conexión de Wallet -->
         <header class="header">
             <h1>Tuxachain Bridge</h1>
             <button id="connect-wallet-btn" class="btn btn-outline">Conectar Wallet</button>
         </header>
 
-        <!-- Tarjeta Principal del Swap -->
         <main class="swap-card">
             <div id="network-warning" class="hidden alert">
                 ⚠️ Red incorrecta. Por favor, cambia a Tuxachain.
@@ -260,15 +258,14 @@
             <button id="swap-btn" class="btn btn-primary btn-large" disabled>Intercambiar</button>
         </main>
 
-        <!-- Consola de Logs -->
         <section class="logs-section">
             <h3>Estado y Logs</h3>
             <div id="logs-console" class="logs-console"></div>
         </section>
     </div>
 
-    <!-- LÓGICA JAVASCRIPT -->
     <script>
+        // ============= CONFIGURACIÓN =============
         const CONFIG = {
             tuxachain: {
                 chainId: 1313161955,
@@ -279,8 +276,8 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                endpoint: 'https://intents-api.aurora.dev/api',
-                key: 'a1977096-6071-444f-9895-6525b15b3197'
+                // 👇 Worker que elimina Referer y añade la API key
+                proxy: 'https://tuxabridge-proxy.luisalfonzonet.workers.dev'
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
@@ -296,10 +293,7 @@
             "function balanceOf(address owner) view returns (uint256)"
         ];
 
-        let provider;
-        let signer;
-        let userAddress = null;
-        let rawBalance = "0";
+        let provider, signer, userAddress = null, rawBalance = "0";
 
         const btnConnect = document.getElementById('connect-wallet-btn');
         const btnSwap = document.getElementById('swap-btn');
@@ -324,7 +318,7 @@
                 tokenInSelect.add(new Option(t.symbol, t.address));
                 tokenOutSelect.add(new Option(t.symbol, t.address));
             });
-            tokenOutSelect.selectedIndex = 1; 
+            tokenOutSelect.selectedIndex = 1; // NEAR por defecto
         }
 
         async function updateBalance() {
@@ -334,7 +328,6 @@
                 const tokenData = CONFIG.tokens.find(t => t.address === tokenAddress);
                 const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
                 const balanceWei = await tokenContract.balanceOf(userAddress);
-                
                 rawBalance = ethers.formatUnits(balanceWei, tokenData.decimals);
                 const displayBalance = parseFloat(rawBalance).toLocaleString('en-US', { maximumFractionDigits: 6 });
                 userBalanceSpan.innerText = `Saldo: ${displayBalance} ${tokenData.symbol}`;
@@ -358,11 +351,9 @@
                 await provider.send("eth_requestAccounts", []);
                 signer = await provider.getSigner();
                 userAddress = await signer.getAddress();
-                
                 btnConnect.innerText = `${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
                 log(`✅ Conectado: ${userAddress}`);
                 await checkNetwork();
-                
                 window.ethereum.on('accountsChanged', () => window.location.reload());
                 window.ethereum.on('chainChanged', () => window.location.reload());
             } catch (err) {
@@ -386,29 +377,25 @@
 
         async function switchNetwork() {
             try {
-                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.tuxachain.chainIdHex }] });
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: CONFIG.tuxachain.chainIdHex }]
+                });
             } catch (e) {
                 log("❌ Error al cambiar red.");
             }
         }
 
-        // --- LLAMADA A LA API CON PROXY PARA LIMPIAR EL REFERER MÓVIL ---
+        // ============= LLAMADA A LA API (usa Worker, sin API key, sin Referer) =============
         async function apiCall(endpointPath, params = null, method = 'POST') {
-            let targetUrl = `${CONFIG.api.endpoint}${endpointPath}/${CONFIG.api.key}`;
-            let url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-            
+            const url = `${CONFIG.api.proxy}${endpointPath}`;
             const options = {
-                method: method,
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
+                method,
+                headers: { 'Content-Type': 'application/json' },
             };
-
             if (params) {
                 options.body = JSON.stringify(params);
             }
-
             const response = await fetch(url, options);
             if (!response.ok) {
                 let errText = '';
@@ -418,6 +405,7 @@
             return response.json();
         }
 
+        // ============= FLUJO DEL SWAP =============
         async function executeSwap() {
             const amountIn = amountInInput.value;
             const tokenIn = tokenInSelect.value;
@@ -435,15 +423,14 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
-                // 1. Obtener Cotización
+                // 1. Cotización
                 log("🔄 1/4 Solicitando cotización...");
-                const deadlineISO = new Date(Date.now() + 60 * 60 * 1000).toISOString(); 
-                
+                const deadlineISO = new Date(Date.now() + 60 * 60 * 1000).toISOString();
                 const quoteReq = {
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    originAsset: tokenIn.toLowerCase(), 
+                    originAsset: tokenIn.toLowerCase(),
                     depositType: "ORIGIN_CHAIN",
                     destinationAsset: tokenOut.toLowerCase(),
                     amount: amountWei.toString(),
@@ -454,14 +441,13 @@
                     deadline: deadlineISO,
                     referral: "tuxachain"
                 };
-                
                 const quoteRes = await apiCall('/quote', quoteReq, 'POST');
-                log("✅ Cotización obtenida con éxito.");
-                amountOutInput.value = "Cotización lista (Procesando depósito...)"; 
+                log("✅ Cotización obtenida.");
+                amountOutInput.value = "Cotización lista (Procesando depósito...)";
 
-                // 2. Obtener Dirección de Depósito
+                // 2. Dirección de depósito
                 log("🔄 2/4 Generando dirección de depósito...");
-                const depositReq = { 
+                const depositReq = {
                     recipient: userAddress.toLowerCase(),
                     sender: userAddress.toLowerCase(),
                     depositChain: CONFIG.tuxachain.chainId.toString(),
@@ -472,24 +458,22 @@
                 const intermediaryAddress = depositRes.depositAddress;
                 log(`✅ Dirección intermediaria: ${intermediaryAddress}`);
 
-                // 3. Transferir Tokens al Intermediario
+                // 3. Transferencia
                 log(`🔄 3/4 Transfiriendo ${amountIn} ${tokenInData.symbol}...`);
                 const tokenContract = new ethers.Contract(tokenIn, ERC20_ABI, signer);
-                
                 const tx = await tokenContract.transfer(intermediaryAddress, amountWei);
-                
                 log(`⏳ Esperando confirmación (Tx: ${tx.hash.substring(0,8)}...)...`);
-                const receipt = await tx.wait();
+                await tx.wait();
                 log(`✅ Transferencia confirmada.`);
 
-                // 4. Notificar a la API
-                log("🔄 4/4 Notificando depósito (Settle)...");
+                // 4. Notificar depósito
+                log("🔄 4/4 Notificando depósito...");
                 const settleReq = {
                     txHash: tx.hash,
                     depositAddress: intermediaryAddress.toLowerCase()
                 };
                 await apiCall('/deposit/submit', settleReq, 'POST');
-                log("🎉 ¡Intercambio completado y notificado exitosamente!");
+                log("🎉 ¡Intercambio completado!");
 
                 await updateBalance();
 
@@ -502,7 +486,7 @@
             }
         }
 
-        // --- LISTENERS ---
+        // ============= LISTENERS =============
         window.addEventListener('DOMContentLoaded', initUI);
         btnConnect.addEventListener('click', connectWallet);
         btnSwitchNetwork.addEventListener('click', switchNetwork);
