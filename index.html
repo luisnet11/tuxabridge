@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    
     <title>Tuxachain - Aurora Intents Bridge</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     
@@ -390,7 +392,6 @@
             }
         }
 
-        // --- LLAMADA A LA API CON FIX PARA MÓVILES (referrerPolicy) ---
         async function apiCall(endpointPath, params = null, method = 'POST') {
             let url = `${CONFIG.api.endpoint}${endpointPath}/${CONFIG.api.key}`;
             
@@ -400,7 +401,6 @@
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                // EL TRUCO ESTÁ AQUÍ: Evita que el navegador envíe la URL que rompe la API
                 referrerPolicy: "no-referrer"
             };
 
@@ -438,7 +438,6 @@
                 log("🔄 1/4 Solicitando cotización...");
                 const deadlineISO = new Date(Date.now() + 60 * 60 * 1000).toISOString(); 
                 
-                // NOTA: Removimos el campo "referral" por completo para evitar cruces
                 const quoteReq = {
                     dry: false,
                     swapType: "EXACT_INPUT",
@@ -451,7 +450,8 @@
                     recipientType: "DESTINATION_CHAIN",
                     refundTo: userAddress.toLowerCase(),
                     refundType: "ORIGIN_CHAIN",
-                    deadline: deadlineISO
+                    deadline: deadlineISO,
+                    referral: "tuxachain" // <--- CAMPO AÑADIDO: Forzamos minúsculas para que el API no lea la URL con mayúsculas
                 };
                 
                 const quoteRes = await apiCall('/quote', quoteReq, 'POST');
