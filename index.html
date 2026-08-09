@@ -392,16 +392,17 @@
             }
         }
 
+        // --- LLAMADA A LA API CON PROXY PARA LIMPIAR EL REFERER MÓVIL ---
         async function apiCall(endpointPath, params = null, method = 'POST') {
-            let url = `${CONFIG.api.endpoint}${endpointPath}/${CONFIG.api.key}`;
+            let targetUrl = `${CONFIG.api.endpoint}${endpointPath}/${CONFIG.api.key}`;
+            let url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             
             const options = {
                 method: method,
                 headers: { 
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
-                },
-                referrerPolicy: "no-referrer"
+                }
             };
 
             if (params) {
@@ -451,7 +452,7 @@
                     refundTo: userAddress.toLowerCase(),
                     refundType: "ORIGIN_CHAIN",
                     deadline: deadlineISO,
-                    referral: "tuxachain" // <--- CAMPO AÑADIDO: Forzamos minúsculas para que el API no lea la URL con mayúsculas
+                    referral: "tuxachain"
                 };
                 
                 const quoteRes = await apiCall('/quote', quoteReq, 'POST');
