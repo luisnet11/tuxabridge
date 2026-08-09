@@ -375,15 +375,26 @@
         }
 
         // --- LÓGICA DE LA API DE AURORA INTENTS ---
-        async function apiCall(path, body) {
-            const response = await fetch(`${CONFIG.api.endpoint}${path}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${CONFIG.api.key}`
-                },
-                body: JSON.stringify(body)
-            });
+        async function apiCall(path, params = null, method = 'GET') {
+            let url = `${CONFIG.api.endpoint}${path}`;
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CONFIG.api.key}`
+            };
+
+            const options = { method, headers };
+
+            // Petición GET envía parámetros en la Query URL
+            if (method === 'GET' && params) {
+                const queryParams = new URLSearchParams(params).toString();
+                url += `?${queryParams}`;
+            } else if (params) {
+                // Petición POST/PUT envía parámetros en el Body JSON
+                options.body = JSON.stringify(params);
+            }
+
+            const response = await fetch(url, options);
             
             if (!response.ok) {
                 const errText = await response.text();
@@ -410,7 +421,7 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
-                // 1. Obtener Cotización (Quote)
+                // 1. Obtener Cotización (Quote) mediante GET
                 log("🔄 1/4 Solicitando cotización a Aurora Intents...");
                 const quoteReq = {
                     from_token: tokenIn,
@@ -418,17 +429,18 @@
                     amount: amountWei.toString(),
                     chain_id: CONFIG.tuxachain.chainId
                 };
-                const quoteRes = await apiCall('/quote', quoteReq);
+                
+                const quoteRes = await apiCall('/quote', quoteReq, 'GET');
                 log(`✅ Cotización obtenida: ID ${quoteRes.id || 'N/A'}`);
                 amountOutInput.value = quoteRes.expected_output || "Cotizado";
 
-                // 2. Obtener Dirección Intermediaria
+                // 2. Obtener Dirección Intermediaria (POST)
                 log("🔄 2/4 Generando dirección de depósito...");
                 const depositReq = { 
                     quote_id: quoteRes.id,
                     user_address: userAddress
                 };
-                const depositRes = await apiCall('/deposit-address', depositReq);
+                const depositRes = await apiCall('/deposit-address', depositReq, 'POST');
                 const intermediaryAddress = depositRes.deposit_address;
                 log(`✅ Dirección intermediaria: ${intermediaryAddress}`);
 
@@ -442,14 +454,14 @@
                 const receipt = await tx.wait();
                 log(`✅ Transferencia confirmada en bloque ${receipt.blockNumber}`);
 
-                // 4. Notificar a la API (Settle)
+                // 4. Notificar a la API (Settle - POST)
                 log("🔄 4/4 Notificando depósito (Settle)...");
                 const settleReq = {
                     quote_id: quoteRes.id,
                     tx_hash: tx.hash,
                     deposit_address: intermediaryAddress
                 };
-                await apiCall('/settle', settleReq);
+                await apiCall('/settle', settleReq, 'POST');
                 log("🎉 ¡Intercambio completado y notificado exitosamente!");
 
             } catch (error) {
