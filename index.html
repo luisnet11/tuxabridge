@@ -1,509 +1,478 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bridge Tuxachain ↔ Aurora Intents</title>
-  <!-- Ethers.js desde CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.min.js"></script>
-  <!-- Estilos (se incluyen en la Parte 2) -->
-  <style>
-    /* Parte 2 – CSS */
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuxachain - Aurora Intents Bridge</title>
+    <!-- Importar Ethers.js v6 (Última versión) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+    <style>
+        /* === INSERTA AQUÍ LA PARTE 2: CSS === */
+    </style>
 </head>
 <body>
-  <div id="app">
-    <h1>🌉 Puente Tuxachain – Aurora Intents</h1>
-    <div id="wallet-section">
-      <button id="connectBtn">🔌 Conectar Wallet</button>
-      <span id="accountDisplay"></span>
-      <span id="networkDisplay"></span>
+    <div class="app-container">
+        <!-- Encabezado y Conexión de Wallet -->
+        <header class="header">
+            <h1>Tuxachain Bridge</h1>
+            <button id="connect-wallet-btn" class="btn btn-outline">Conectar Wallet</button>
+        </header>
+
+        <!-- Tarjeta Principal del Swap -->
+        <main class="swap-card">
+            <div id="network-warning" class="hidden alert">
+                ⚠️ Red incorrecta. Por favor, cambia a Tuxachain.
+                <button id="switch-network-btn" class="btn btn-small">Cambiar Red</button>
+            </div>
+
+            <div class="input-group">
+                <label>Enviar (Desde Tuxachain)</label>
+                <div class="input-row">
+                    <input type="number" id="amount-in" placeholder="0.0" min="0" step="any">
+                    <select id="token-in"></select>
+                </div>
+            </div>
+
+            <div class="swap-divider">
+                <span>⬇️ Hacia (Aurora Intents)</span>
+            </div>
+
+            <div class="input-group">
+                <label>Recibir</label>
+                <div class="input-row">
+                    <input type="text" id="amount-out" placeholder="Cotización automática" disabled>
+                    <select id="token-out"></select>
+                </div>
+            </div>
+
+            <button id="swap-btn" class="btn btn-primary btn-large" disabled>Intercambiar</button>
+        </main>
+
+        <!-- Consola de Logs -->
+        <section class="logs-section">
+            <h3>Estado y Logs</h3>
+            <div id="logs-console" class="logs-console"></div>
+        </section>
     </div>
-    <hr />
-    <div id="swap-section">
-      <div class="row">
-        <div class="col">
-          <label>Desde (origen)</label>
-          <select id="fromTokenSelect"></select>
-        </div>
-        <div class="col">
-          <label>Hacia (destino)</label>
-          <select id="toTokenSelect"></select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <label>Cantidad</label>
-          <input type="number" id="amountInput" placeholder="0.0" step="any" />
-        </div>
-        <div class="col">
-          <button id="swapBtn" disabled>🔄 Intercambiar</button>
-        </div>
-      </div>
-      <div id="status"></div>
-      <div id="logs"></div>
-    </div>
-  </div>
-  <!-- JavaScript (Parte 3) -->
-  <script>
-    // Parte 3 – JavaScript
-  </script>
+
+    <script>
+        // === INSERTA AQUÍ LA PARTE 3: JAVASCRIPT ===
+    </script>
 </body>
 </html>
+:root {
+    --primary-color: #70ffaf;
+    --primary-dark: #4bc985;
+    --bg-color: #f4f7f6;
+    --card-bg: #ffffff;
+    --text-main: #1a1a1a;
+    --text-muted: #6e6e6e;
+    --border-color: #e0e0e0;
+    --error-bg: #ffeded;
+    --error-text: #d32f2f;
+    --console-bg: #1e1e1e;
+    --console-text: #00ff00;
+}
+
 * {
-  box-sizing: border-box;
-  font-family: system-ui, -apple-system, sans-serif;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+
 body {
-  background: #f0f2f5;
-  display: flex;
-  justify-content: center;
-  margin: 2rem;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
 }
-#app {
-  max-width: 700px;
-  width: 100%;
-  background: white;
-  padding: 2rem;
-  border-radius: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-h1 {
-  font-size: 1.8rem;
-  margin: 0 0 1.5rem 0;
-  color: #1a1a2e;
-}
-#wallet-section {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 1.5rem;
-}
-#connectBtn {
-  background: #4a6cf7;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 40px;
-  font-weight: 600;
-  cursor: pointer;
-}
-#connectBtn:hover {
-  background: #3651d4;
-}
-#accountDisplay, #networkDisplay {
-  font-size: 0.9rem;
-  color: #555;
-  background: #f0f2f5;
-  padding: 6px 12px;
-  border-radius: 20px;
-  word-break: break-all;
-}
-.row {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 1.2rem;
-  flex-wrap: wrap;
-}
-.col {
-  flex: 1;
-  min-width: 150px;
-}
-label {
-  display: block;
-  font-weight: 600;
-  font-size: 0.9rem;
-  margin-bottom: 6px;
-  color: #333;
-}
-select, input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ccc;
-  border-radius: 12px;
-  font-size: 1rem;
-  background: white;
-}
-select:focus, input:focus {
-  outline: 2px solid #4a6cf7;
-}
-#swapBtn {
-  width: 100%;
-  padding: 12px;
-  background: #1a1a2e;
-  color: white;
-  border: none;
-  border-radius: 40px;
-  font-weight: 700;
-  font-size: 1.1rem;
-  cursor: pointer;
-  margin-top: 6px;
-}
-#swapBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-#status {
-  margin: 1rem 0;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f8f9fa;
-  font-weight: 500;
-}
-#logs {
-  background: #1e1e2f;
-  color: #a6e22e;
-  padding: 12px;
-  border-radius: 12px;
-  font-family: monospace;
-  font-size: 0.85rem;
-  max-height: 200px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  margin-top: 1rem;
-}
-hr {
-  border: none;
-  border-top: 2px solid #eee;
-  margin: 1.5rem 0;
-}
-// ==================== CONFIGURACIÓN ====================
-const API_KEY = 'a1977096-6071-444f-9895-6525b15b3197';
-const INTENTS_API = 'https://intents-api.aurora.dev/api';
 
-// Datos de Tuxachain
-const TUXA_CHAIN = {
-  chainId: 1313161955,
-  rpc: 'https://0x4e4542e3.rpc.aurora-cloud.dev',
-  explorer: 'https://0x4e4542e3.explorer.aurora-cloud.dev',
-  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+.app-container {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.btn {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 2px solid var(--border-color);
+    color: var(--text-main);
+}
+
+.btn-outline:hover:not(:disabled) {
+    border-color: var(--text-muted);
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: #000;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-dark);
+}
+
+.btn-large {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.1rem;
+    margin-top: 10px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    margin-top: 8px;
+}
+
+.swap-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.alert {
+    background: var(--error-bg);
+    color: var(--error-text);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.input-group {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.input-group label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.input-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.input-row input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    color: var(--text-main);
+    width: 100%;
+    outline: none;
+}
+
+.input-row input:disabled {
+    color: var(--text-muted);
+}
+
+.input-row select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+}
+
+.swap-divider {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.logs-section h3 {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.logs-console {
+    background: var(--console-bg);
+    color: var(--console-text);
+    padding: 12px;
+    border-radius: 12px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+// --- CONFIGURACIÓN TUXACHAIN Y AURORA INTENTS ---
+const CONFIG = {
+    tuxachain: {
+        chainId: 1313161955,
+        chainIdHex: '0x4e4542e3',
+        chainName: 'Tuxachain',
+        rpcUrl: 'https://0x4e4542e3.rpc.aurora-cloud.dev',
+        explorerUrl: 'https://0x4e4542e3.explorer.aurora-cloud.dev',
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
+    },
+    api: {
+        endpoint: 'https://intents-api.aurora.dev/api',
+        key: 'a1977096-6071-444f-9895-6525b15b3197'
+    },
+    tokens: [
+        { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
+        { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 18 },
+        { symbol: 'AURORA', address: '0x8BEc47865aDe3B172A928df8f990Bc7f2A3b9f79', decimals: 18 },
+        { symbol: 'USDt', address: '0x80Da25Da4D783E57d2FCdA0436873A193a4BEccF', decimals: 6 }
+    ]
 };
 
-// Tokens en Tuxachain (direcciones de contrato)
-const TUXA_TOKENS = {
-  NEAR: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d',
-  AURORA: '0x8BEc47865aDe3B172A928df8f990Bc7f2A3b9f79',
-  ETH: '0x5a524251df27A25AC6b9964a93E1c23AD692688D',
-  USDt: '0x80Da25Da4D783E57d2FCdA0436873A193a4BEccF',
-};
+// ABI mínimo para transferencia ERC20
+const ERC20_ABI = [
+    "function transfer(address to, uint256 amount) returns (bool)",
+    "function decimals() view returns (uint8)"
+];
 
-// ==================== VARIABLES GLOBALES ====================
-let signer = null;
-let provider = null;
-let account = null;
-let chainId = null;
-let allTokens = [];           // Lista completa de tokens de la API
-let tokensMap = {};           // Mapa tokenId -> tokenInfo
-let selectedFromId = null;
-let selectedToId = null;
+// --- ESTADO GLOBAL ---
+let provider;
+let signer;
+let userAddress = null;
 
-// ==================== REFERENCIAS DOM ====================
-const connectBtn = document.getElementById('connectBtn');
-const accountDisplay = document.getElementById('accountDisplay');
-const networkDisplay = document.getElementById('networkDisplay');
-const fromSelect = document.getElementById('fromTokenSelect');
-const toSelect = document.getElementById('toTokenSelect');
-const amountInput = document.getElementById('amountInput');
-const swapBtn = document.getElementById('swapBtn');
-const statusDiv = document.getElementById('status');
-const logsDiv = document.getElementById('logs');
+// --- ELEMENTOS DEL DOM ---
+const btnConnect = document.getElementById('connect-wallet-btn');
+const btnSwap = document.getElementById('swap-btn');
+const networkWarning = document.getElementById('network-warning');
+const btnSwitchNetwork = document.getElementById('switch-network-btn');
+const logsConsole = document.getElementById('logs-console');
+const tokenInSelect = document.getElementById('token-in');
+const tokenOutSelect = document.getElementById('token-out');
+const amountInInput = document.getElementById('amount-in');
+const amountOutInput = document.getElementById('amount-out');
 
-// ==================== FUNCIONES AUXILIARES ====================
+// --- UTILIDADES ---
 function log(msg) {
-  logsDiv.textContent += msg + '\n';
-  logsDiv.scrollTop = logsDiv.scrollHeight;
+    const time = new Date().toLocaleTimeString();
+    logsConsole.innerHTML += `[${time}] ${msg}\n`;
+    logsConsole.scrollTop = logsConsole.scrollHeight;
 }
 
-function setStatus(msg, isError = false) {
-  statusDiv.textContent = msg;
-  statusDiv.style.background = isError ? '#fee' : '#f0f8ff';
-}
-
-// ==================== 1. OBTENER TOKENS DE LA API ====================
-async function fetchTokens() {
-  try {
-    const res = await fetch(`${INTENTS_API}/tokens/${API_KEY}`);
-    if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    allTokens = data.tokens || [];
-    // Construir mapa: clave = chainId + address (para EVM)
-    allTokens.forEach(t => {
-      const key = t.chainId + ':' + t.address;
-      tokensMap[key] = t;
-      // También guardar por symbol para búsqueda rápida
-      tokensMap[t.symbol] = t;
+function initUI() {
+    CONFIG.tokens.forEach(t => {
+        tokenInSelect.add(new Option(t.symbol, t.address));
+        tokenOutSelect.add(new Option(t.symbol, t.address));
     });
-    log(`✅ ${allTokens.length} tokens cargados desde Intents API`);
-    return allTokens;
-  } catch (e) {
-    log(`❌ Error al cargar tokens: ${e.message}`);
-    setStatus('Error al cargar tokens', true);
-    return [];
-  }
+    tokenOutSelect.selectedIndex = 1; 
 }
 
-// ==================== 2. CONECTAR WALLET ====================
+// --- LÓGICA WEB3 CON ETHERS V6 ---
 async function connectWallet() {
-  if (!window.ethereum) {
-    alert('No se detecta una wallet (MetaMask, Trust, etc.)');
-    return;
-  }
-  try {
-    // Solicitar cuentas
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    account = accounts[0];
-    provider = new ethers.BrowserProvider(window.ethereum);
-    signer = await provider.getSigner();
+    if (!window.ethereum) {
+        log("❌ Error: No se detectó window.ethereum (Instala MetaMask).");
+        return;
+    }
+    
+    try {
+        // En Ethers v6 se usa BrowserProvider en lugar de Web3Provider
+        provider = new ethers.BrowserProvider(window.ethereum);
+        
+        await provider.send("eth_requestAccounts", []);
+        
+        // En Ethers v6 getSigner() es una función asíncrona
+        signer = await provider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        const shortAddr = `${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
+        btnConnect.innerText = shortAddr;
+        log(`✅ Conectado: ${userAddress}`);
+        
+        await checkNetwork();
+        
+        window.ethereum.on('accountsChanged', () => window.location.reload());
+        window.ethereum.on('chainChanged', () => window.location.reload());
+        
+    } catch (err) {
+        log(`❌ Error al conectar: ${err.message}`);
+    }
+}
 
-    // Obtener chainId actual
-    const net = await provider.getNetwork();
-    chainId = Number(net.chainId);
+async function checkNetwork() {
+    const network = await provider.getNetwork();
+    // En v6 network.chainId es de tipo BigInt
+    if (Number(network.chainId) !== CONFIG.tuxachain.chainId) {
+        networkWarning.classList.remove('hidden');
+        btnSwap.disabled = true;
+        log("⚠️ Red incorrecta detectada.");
+    } else {
+        networkWarning.classList.add('hidden');
+        btnSwap.disabled = false;
+        log("✅ Conectado a Tuxachain.");
+    }
+}
 
-    // Si no es Tuxachain, preguntar si agregar
-    if (chainId !== TUXA_CHAIN.chainId) {
-      const shouldAdd = confirm('Tu wallet no está en Tuxachain. ¿Quieres agregar la red Tuxachain?');
-      if (shouldAdd) {
+async function switchNetwork() {
+    try {
         await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: '0x' + TUXA_CHAIN.chainId.toString(16),
-            chainName: 'Tuxachain',
-            rpcUrls: [TUXA_CHAIN.rpc],
-            nativeCurrency: TUXA_CHAIN.nativeCurrency,
-            blockExplorerUrls: [TUXA_CHAIN.explorer],
-          }]
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: CONFIG.tuxachain.chainIdHex }],
         });
-        // Esperar cambio de red
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const newNet = await provider.getNetwork();
-        chainId = Number(newNet.chainId);
-      }
+    } catch (switchError) {
+        if (switchError.code === 4902) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: CONFIG.tuxachain.chainIdHex,
+                        chainName: CONFIG.tuxachain.chainName,
+                        nativeCurrency: CONFIG.tuxachain.nativeCurrency,
+                        rpcUrls: [CONFIG.tuxachain.rpcUrl],
+                        blockExplorerUrls: [CONFIG.tuxachain.explorerUrl]
+                    }],
+                });
+            } catch (addError) {
+                log(`❌ Error al agregar red: ${addError.message}`);
+            }
+        } else {
+            log(`❌ Error al cambiar red: ${switchError.message}`);
+        }
     }
-
-    accountDisplay.textContent = `👤 ${account.slice(0,6)}...${account.slice(-4)}`;
-    networkDisplay.textContent = `🔗 ${chainId === TUXA_CHAIN.chainId ? 'Tuxachain' : chainId}`;
-    connectBtn.textContent = '✅ Conectado';
-    connectBtn.disabled = true;
-    swapBtn.disabled = false;
-    log(`🔗 Conectado a ${chainId === TUXA_CHAIN.chainId ? 'Tuxachain' : chainId} - ${account}`);
-    setStatus('Wallet conectada correctamente');
-
-    // Actualizar selectores según la red actual
-    updateTokenSelectors();
-    return true;
-  } catch (e) {
-    log(`❌ Error al conectar: ${e.message}`);
-    setStatus('Error al conectar la wallet', true);
-    return false;
-  }
 }
 
-// ==================== 3. ACTUALIZAR SELECTORES DE TOKENS ====================
-function updateTokenSelectors() {
-  // Limpiar selects
-  fromSelect.innerHTML = '<option value="">-- Selecciona --</option>';
-  toSelect.innerHTML = '<option value="">-- Selecciona --</option>';
-
-  // Filtrar tokens según la red actual
-  let fromTokens = [];
-  let toTokens = [];
-
-  if (chainId === TUXA_CHAIN.chainId) {
-    // Estamos en Tuxachain: mostrar los tokens definidos (usando las direcciones)
-    const tuxaTokenIds = Object.values(TUXA_TOKENS).map(addr => `evm:${chainId}:${addr}`);
-    fromTokens = allTokens.filter(t => tuxaTokenIds.includes(t.id));
-    // Si no se encuentran en allTokens, los creamos manualmente
-    if (fromTokens.length === 0) {
-      fromTokens = Object.entries(TUXA_TOKENS).map(([symbol, addr]) => ({
-        id: `evm:${chainId}:${addr}`,
-        symbol: symbol,
-        name: symbol,
-        chainId: chainId,
-        address: addr,
-        decimals: 18,
-      }));
-    }
-    // Destino: todos los demás tokens (de otras redes)
-    toTokens = allTokens.filter(t => t.chainId !== chainId);
-  } else {
-    // Estamos en otra red EVM (Ethereum, Aurora, etc.)
-    // Mostrar tokens de esa red como origen
-    fromTokens = allTokens.filter(t => Number(t.chainId) === chainId);
-    // Destino: tokens de Tuxachain (y posiblemente otras)
-    toTokens = allTokens.filter(t => Number(t.chainId) === TUXA_CHAIN.chainId);
-    // También permitir otras redes? Podemos mostrar todas excepto la actual
-    // Pero por simplicidad, destino solo Tuxachain.
-  }
-
-  // Llenar fromSelect
-  fromTokens.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t.id;
-    opt.textContent = `${t.symbol} (${t.name || t.symbol})`;
-    fromSelect.appendChild(opt);
-  });
-
-  // Llenar toSelect
-  toTokens.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t.id;
-    opt.textContent = `${t.symbol} (${t.name || t.symbol})`;
-    toSelect.appendChild(opt);
-  });
-
-  if (fromTokens.length === 0) log('⚠️ No se encontraron tokens en esta red');
-  if (toTokens.length === 0) log('⚠️ No se encontraron tokens destino');
-}
-
-// ==================== 4. OBTENER COTIZACIÓN ====================
-async function getQuote(fromId, toId, amount) {
-  const url = `${INTENTS_API}/quote/${API_KEY}`;
-  const body = {
-    swapType: 'EXACT_INPUT',
-    originAsset: fromId,
-    destinationAsset: toId,
-    amount: amount.toString(),
-    recipient: account,
-    recipientType: 'DESTINATION_CHAIN',
-    refundTo: account,
-    refundType: 'ORIGIN_CHAIN',
-    slippageTolerance: 100, // 1%
-    deadline: new Date(Date.now() + 3600000).toISOString(),
-  };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Quote error: ${await res.text()}`);
-  return res.json();
-}
-
-// ==================== 5. OBTENER INTERMEDIARIO ====================
-async function getIntermediary(wallet) {
-  const url = `${INTENTS_API}/intermediary/${API_KEY}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ wallet: wallet }),
-  });
-  if (!res.ok) throw new Error(`Intermediary error: ${await res.text()}`);
-  const data = await res.json();
-  // La respuesta tiene { evm, near, solana } según la red
-  return data.evm; // Para EVM
-}
-
-// ==================== 6. EJECUTAR SWAP ====================
-async function executeSwap() {
-  if (!signer) {
-    setStatus('Primero conecta tu wallet', true);
-    return;
-  }
-
-  const fromId = fromSelect.value;
-  const toId = toSelect.value;
-  const amount = amountInput.value;
-
-  if (!fromId || !toId || !amount || parseFloat(amount) <= 0) {
-    setStatus('Selecciona tokens y monto válido', true);
-    return;
-  }
-
-  swapBtn.disabled = true;
-  setStatus('⏳ Procesando...');
-  log('🚀 Iniciando intercambio...');
-
-  try {
-    // 1. Obtener cotización
-    const quote = await getQuote(fromId, toId, ethers.parseUnits(amount, 18));
-    log(`📊 Cotización recibida: ${quote.estimatedOutput} tokens destino`);
-    
-    // 2. Obtener dirección intermediaria
-    const intermediary = await getIntermediary(account);
-    log(`📍 Intermediario: ${intermediary}`);
-
-    // 3. Transferir tokens al intermediario (usando ethers)
-    const tokenInfo = allTokens.find(t => t.id === fromId);
-    if (!tokenInfo) throw new Error('Token origen no encontrado en la API');
-
-    const tokenAddress = tokenInfo.address;
-    const tokenContract = new ethers.Contract(
-      tokenAddress,
-      ['function transfer(address to, uint256 amount) returns (bool)'],
-      signer
-    );
-    const amountWei = ethers.parseUnits(amount, tokenInfo.decimals || 18);
-    
-    log(`🔄 Enviando ${amount} ${tokenInfo.symbol} al intermediario...`);
-    const tx = await tokenContract.transfer(intermediary, amountWei);
-    setStatus(`⏳ Transacción enviada, esperando confirmación...`);
-    log(`📝 TX hash: ${tx.hash}`);
-    
-    const receipt = await tx.wait();
-    log(`✅ Confirmado en bloque ${receipt.blockNumber}`);
-
-    // 4. Notificar a Intents que el depósito se realizó
-    const settleRes = await fetch(`${INTENTS_API}/settle/${API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        quoteId: quote.id,
-        txHash: tx.hash,
-      }),
+// --- LÓGICA DE LA API DE AURORA INTENTS ---
+async function apiCall(path, body) {
+    const response = await fetch(`${CONFIG.api.endpoint}${path}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${CONFIG.api.key}`
+        },
+        body: JSON.stringify(body)
     });
-    if (!settleRes.ok) {
-      const errText = await settleRes.text();
-      log(`⚠️ Notificación de liquidación falló: ${errText}`);
-    } else {
-      log('✅ Liquidación notificada correctamente');
+    
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API Error (${response.status}): ${errText}`);
     }
-
-    setStatus(`✅ ¡Intercambio completado! TX: ${tx.hash.slice(0,10)}...`);
-  } catch (e) {
-    log(`❌ Error: ${e.message}`);
-    setStatus(`Error: ${e.message}`, true);
-  } finally {
-    swapBtn.disabled = false;
-  }
+    return response.json();
 }
 
-// ==================== 7. EVENTOS Y ARRANQUE ====================
-connectBtn.addEventListener('click', connectWallet);
-swapBtn.addEventListener('click', executeSwap);
+// --- FLUJO DE SWAP / BRIDGE (ETHERS V6) ---
+async function executeSwap() {
+    const amountIn = amountInInput.value;
+    const tokenIn = tokenInSelect.value;
+    const tokenOut = tokenOutSelect.value;
+    const tokenInData = CONFIG.tokens.find(t => t.address === tokenIn);
 
-// Detectar cambio de red
-if (window.ethereum) {
-  window.ethereum.on('chainChanged', (newChain) => {
-    chainId = parseInt(newChain, 16);
-    networkDisplay.textContent = `🔗 ${chainId === TUXA_CHAIN.chainId ? 'Tuxachain' : chainId}`;
-    updateTokenSelectors();
-    log(`🔄 Red cambiada a ${chainId}`);
-  });
-  window.ethereum.on('accountsChanged', (accounts) => {
-    if (accounts.length === 0) {
-      account = null;
-      accountDisplay.textContent = '';
-      connectBtn.textContent = '🔌 Conectar Wallet';
-      connectBtn.disabled = false;
-      swapBtn.disabled = true;
-      setStatus('Wallet desconectada', true);
-      log('👋 Wallet desconectada');
-    } else {
-      account = accounts[0];
-      accountDisplay.textContent = `👤 ${account.slice(0,6)}...${account.slice(-4)}`;
-      log(`👤 Cuenta cambiada a ${account}`);
+    if (!amountIn || amountIn <= 0) {
+        log("❌ Ingresa una cantidad válida.");
+        return;
     }
-  });
+
+    try {
+        btnSwap.disabled = true;
+        btnSwap.innerText = "Procesando...";
+
+        // En v6 parseUnits está directamente en 'ethers' y retorna un BigInt
+        const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
+
+        // 1. Obtener Cotización (Quote)
+        log("🔄 1/4 Solicitando cotización a Aurora Intents...");
+        const quoteReq = {
+            from_token: tokenIn,
+            to_token: tokenOut,
+            amount: amountWei.toString(),
+            chain_id: CONFIG.tuxachain.chainId
+        };
+        const quoteRes = await apiCall('/quote', quoteReq);
+        log(`✅ Cotización obtenida: ID ${quoteRes.id || 'N/A'}`);
+        amountOutInput.value = quoteRes.expected_output || "Cotizado";
+
+        // 2. Obtener Dirección Intermediaria
+        log("🔄 2/4 Generando dirección de depósito...");
+        const depositReq = { 
+            quote_id: quoteRes.id,
+            user_address: userAddress
+        };
+        const depositRes = await apiCall('/deposit-address', depositReq);
+        const intermediaryAddress = depositRes.deposit_address;
+        log(`✅ Dirección intermediaria: ${intermediaryAddress}`);
+
+        // 3. Transferir Tokens al Intermediario
+        log(`🔄 3/4 Transfiriendo ${amountIn} ${tokenInData.symbol}...`);
+        
+        const tokenContract = new ethers.Contract(tokenIn, ERC20_ABI, signer);
+        const tx = await tokenContract.transfer(intermediaryAddress, amountWei);
+        
+        log(`⏳ Esperando confirmación (Tx: ${tx.hash.substring(0,8)}...)...`);
+        
+        // En v6 tx.wait() sigue siendo la forma de esperar la confirmación
+        const receipt = await tx.wait();
+        log(`✅ Transferencia confirmada en bloque ${receipt.blockNumber}`);
+
+        // 4. Notificar a la API (Settle)
+        log("🔄 4/4 Notificando depósito (Settle)...");
+        const settleReq = {
+            quote_id: quoteRes.id,
+            tx_hash: tx.hash,
+            deposit_address: intermediaryAddress
+        };
+        await apiCall('/settle', settleReq);
+        log("🎉 ¡Intercambio completado y notificado exitosamente!");
+
+    } catch (error) {
+        log(`❌ Error en el flujo: ${error.message}`);
+        console.error(error);
+    } finally {
+        btnSwap.disabled = false;
+        btnSwap.innerText = "Intercambiar";
+    }
 }
 
-// Inicializar
-(async function init() {
-  await fetchTokens();
-  // Si ya hay una cuenta conectada (por ejemplo, si la página recarga)
-  if (window.ethereum && window.ethereum.selectedAddress) {
-    await connectWallet();
-  } else {
-    setStatus('Conecta tu wallet para empezar');
-  }
-})();
+// --- LISTENERS ---
+window.addEventListener('DOMContentLoaded', initUI);
+btnConnect.addEventListener('click', connectWallet);
+btnSwitchNetwork.addEventListener('click', switchNetwork);
+btnSwap.addEventListener('click', executeSwap);
+      
