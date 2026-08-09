@@ -278,7 +278,6 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                // Base URL para la API
                 endpoint: 'https://intents-api.aurora.dev/api',
                 key: 'a1977096-6071-444f-9895-6525b15b3197'
             },
@@ -316,7 +315,7 @@
             const time = new Date().toLocaleTimeString();
             logsConsole.innerHTML += `[${time}] ${msg}\n`;
             logsConsole.scrollTop = logsConsole.scrollHeight;
-            console.log(`[${time}]`, msg); // También a la consola del navegador
+            console.log(`[${time}]`, msg);
         }
 
         function initUI() {
@@ -392,9 +391,8 @@
             }
         }
 
-        // --- NUEVA LÓGICA DE LA API (Alineada con la documentación) ---
+        // --- LLAMADA A LA API ---
         async function apiCall(endpointPath, params = null, method = 'POST') {
-            // Construye: https://intents-api.aurora.dev/api/ruta/CLAVE_API
             let url = `${CONFIG.api.endpoint}${endpointPath}/${CONFIG.api.key}`;
             
             const options = {
@@ -431,39 +429,40 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
-                // 1. Obtener Cotización (POST /quote/{apiKey})
+                // 1. Obtener Cotización
                 log("🔄 1/4 Solicitando cotización...");
-                const deadlineISO = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora de límite
+                const deadlineISO = new Date(Date.now() + 60 * 60 * 1000).toISOString(); 
                 
                 const quoteReq = {
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    originAsset: tokenIn, 
+                    // Convertimos TODAS las direcciones a minúsculas
+                    originAsset: tokenIn.toLowerCase(), 
                     depositType: "ORIGIN_CHAIN",
-                    destinationAsset: tokenOut,
+                    destinationAsset: tokenOut.toLowerCase(),
                     amount: amountWei.toString(),
-                    recipient: userAddress,
+                    recipient: userAddress.toLowerCase(),
                     recipientType: "DESTINATION_CHAIN",
-                    refundTo: userAddress,
+                    refundTo: userAddress.toLowerCase(),
                     refundType: "ORIGIN_CHAIN",
-                    deadline: deadlineISO
+                    deadline: deadlineISO,
+                    // Se agrega el parámetro explícito en minúsculas por si el servidor lo exige
+                    referral: "tuxachain" 
                 };
                 
                 const quoteRes = await apiCall('/quote', quoteReq, 'POST');
                 log("✅ Cotización obtenida.");
-                
-                // Tratar de mostrar el saldo de salida (dependerá de cómo lo llame la API en la respuesta)
                 amountOutInput.value = "Cotización lista (Procesando depósito...)"; 
 
-                // 2. Obtener Dirección de Depósito (POST /persistent-deposit-address/{apiKey})
+                // 2. Obtener Dirección de Depósito
                 log("🔄 2/4 Generando dirección de depósito...");
                 const depositReq = { 
-                    recipient: userAddress,
-                    sender: userAddress,
+                    recipient: userAddress.toLowerCase(),
+                    sender: userAddress.toLowerCase(),
                     depositChain: CONFIG.tuxachain.chainId.toString(),
-                    destinationChain: "aurora", // Asumimos aurora como destino general
-                    destinationAsset: tokenOut
+                    destinationChain: "aurora",
+                    destinationAsset: tokenOut.toLowerCase()
                 };
                 const depositRes = await apiCall('/persistent-deposit-address', depositReq, 'POST');
                 const intermediaryAddress = depositRes.depositAddress;
@@ -472,17 +471,19 @@
                 // 3. Transferir Tokens al Intermediario
                 log(`🔄 3/4 Transfiriendo ${amountIn} ${tokenInData.symbol}...`);
                 const tokenContract = new ethers.Contract(tokenIn, ERC20_ABI, signer);
+                
+                // Nota: para la tx en EVM se puede usar la original con Checksum
                 const tx = await tokenContract.transfer(intermediaryAddress, amountWei);
                 
                 log(`⏳ Esperando confirmación (Tx: ${tx.hash.substring(0,8)}...)...`);
                 const receipt = await tx.wait();
                 log(`✅ Transferencia confirmada.`);
 
-                // 4. Notificar a la API (POST /deposit/submit/{apiKey})
+                // 4. Notificar a la API
                 log("🔄 4/4 Notificando depósito (Settle)...");
                 const settleReq = {
                     txHash: tx.hash,
-                    depositAddress: intermediaryAddress
+                    depositAddress: intermediaryAddress.toLowerCase()
                 };
                 await apiCall('/deposit/submit', settleReq, 'POST');
                 log("🎉 ¡Intercambio completado y notificado exitosamente!");
