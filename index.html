@@ -109,7 +109,7 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                proxy: 'https://dawn-sky-f9b8.luisalfonzonet.workers.dev'  // 👈 NUEVO WORKER
+                proxy: 'https://dawn-sky-f9b8.luisalfonzonet.workers.dev'  // Tu Worker activo
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
@@ -150,7 +150,7 @@
                 tokenInSelect.add(new Option(t.symbol, t.address));
                 tokenOutSelect.add(new Option(t.symbol, t.address));
             });
-            tokenOutSelect.selectedIndex = 1;
+            tokenOutSelect.selectedIndex = 1; // NEAR por defecto
         }
 
         async function updateBalance() {
@@ -220,7 +220,7 @@
             }
         }
 
-        // ============= API CALL (proxy Worker) =============
+        // ============= API CALL (proxy) =============
         async function apiCall(endpointPath, params = null, method = 'POST') {
             const url = `${CONFIG.api.proxy}${endpointPath}`;
             const options = {
@@ -264,9 +264,9 @@
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    originAsset: tokenIn.toLowerCase(),
+                    tokenIn: tokenIn.toLowerCase(),          // ← corregido
+                    tokenOut: tokenOut.toLowerCase(),        // ← corregido
                     depositType: "ORIGIN_CHAIN",
-                    destinationAsset: tokenOut.toLowerCase(),
                     amount: amountWei.toString(),
                     recipient: userAddress.toLowerCase(),
                     recipientType: "DESTINATION_CHAIN",
@@ -327,4 +327,4 @@
         btnSwap.addEventListener('click', executeSwap);
     </script>
 </body>
-    </html>
+</html>
