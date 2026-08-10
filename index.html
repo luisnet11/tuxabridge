@@ -109,7 +109,7 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                proxy: 'https://dawn-sky-f9b8.luisalfonzonet.workers.dev'  // Tu Worker activo
+                proxy: 'https://dawn-sky-f9b8.luisalfonzonet.workers.dev'
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
@@ -257,6 +257,10 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
+                // Obtener símbolos en minúsculas para la API
+                const tokenInSymbol = CONFIG.tokens.find(t => t.address === tokenIn).symbol.toLowerCase(); // ej. "near"
+                const tokenOutSymbol = CONFIG.tokens.find(t => t.address === tokenOut).symbol.toLowerCase(); // ej. "aurora"
+
                 // 1. Cotización
                 log("🔄 1/4 Solicitando cotización...");
                 const deadlineISO = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -264,8 +268,10 @@
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    tokenIn: tokenIn.toLowerCase(),          // ← corregido
-                    tokenOut: tokenOut.toLowerCase(),        // ← corregido
+                    tokenIn: tokenInSymbol,                 // ← símbolo
+                    tokenOut: tokenOutSymbol,               // ← símbolo
+                    originChain: "tuxachain",               // añadido
+                    destinationChain: "aurora",             // añadido
                     depositType: "ORIGIN_CHAIN",
                     amount: amountWei.toString(),
                     recipient: userAddress.toLowerCase(),
@@ -286,7 +292,7 @@
                     sender: userAddress.toLowerCase(),
                     depositChain: CONFIG.tuxachain.chainId.toString(),
                     destinationChain: "aurora",
-                    destinationAsset: tokenOut.toLowerCase()
+                    destinationAsset: tokenOutSymbol // usar símbolo aquí también si es necesario
                 };
                 const depositRes = await apiCall('/persistent-deposit-address', depositReq, 'POST');
                 const intermediaryAddress = depositRes.depositAddress;
