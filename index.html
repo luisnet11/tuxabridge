@@ -157,7 +157,12 @@
             if (!provider || !userAddress) return;
             try {
                 const tokenAddress = tokenInSelect.value;
-                const tokenData = CONFIG.tokens.find(t => t.address === tokenAddress);
+                const tokenData = CONFIG.tokens.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+                if (!tokenData) {
+                    log("❌ Token no encontrado en la lista.");
+                    userBalanceSpan.innerText = "Saldo: Error";
+                    return;
+                }
                 const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
                 const balanceWei = await tokenContract.balanceOf(userAddress);
                 rawBalance = ethers.formatUnits(balanceWei, tokenData.decimals);
@@ -244,10 +249,15 @@
             const amountIn = amountInInput.value;
             const tokenIn = tokenInSelect.value;
             const tokenOut = tokenOutSelect.value;
-            const tokenInData = CONFIG.tokens.find(t => t.address === tokenIn);
+            const tokenInData = CONFIG.tokens.find(t => t.address.toLowerCase() === tokenIn.toLowerCase());
 
             if (!amountIn || amountIn <= 0) {
                 log("❌ Ingresa una cantidad válida.");
+                return;
+            }
+
+            if (!tokenInData) {
+                log("❌ Token de entrada no encontrado en la lista.");
                 return;
             }
 
@@ -257,9 +267,14 @@
 
                 const amountWei = ethers.parseUnits(amountIn, tokenInData.decimals);
 
-                // Obtener símbolos en minúsculas
-                const tokenInSymbol = CONFIG.tokens.find(t => t.address === tokenIn).symbol.toLowerCase();
-                const tokenOutSymbol = CONFIG.tokens.find(t => t.address === tokenOut).symbol.toLowerCase();
+                // Obtener símbolos en minúsculas (comparación segura)
+                const tokenInSymbol = CONFIG.tokens.find(t => t.address.toLowerCase() === tokenIn.toLowerCase())?.symbol.toLowerCase();
+                const tokenOutSymbol = CONFIG.tokens.find(t => t.address.toLowerCase() === tokenOut.toLowerCase())?.symbol.toLowerCase();
+
+                log(`🔍 Debug: tokenInSymbol=${tokenInSymbol}, tokenOutSymbol=${tokenOutSymbol}`);
+                if (!tokenInSymbol || !tokenOutSymbol) {
+                    throw new Error("No se pudo determinar el símbolo del token seleccionado.");
+                }
 
                 // 1. Cotización
                 log("🔄 1/4 Solicitando cotización...");
@@ -268,8 +283,8 @@
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    originAsset: tokenInSymbol,       // ← símbolo en minúsculas
-                    destinationAsset: tokenOutSymbol, // ← símbolo en minúsculas
+                    originAsset: tokenInSymbol,
+                    destinationAsset: tokenOutSymbol,
                     originChain: "tuxachain",
                     destinationChain: "aurora",
                     depositType: "ORIGIN_CHAIN",
@@ -292,7 +307,7 @@
                     sender: userAddress.toLowerCase(),
                     depositChain: CONFIG.tuxachain.chainId.toString(),
                     destinationChain: "aurora",
-                    destinationAsset: tokenOutSymbol // también símbolo aquí
+                    destinationAsset: tokenOutSymbol
                 };
                 const depositRes = await apiCall('/persistent-deposit-address', depositReq, 'POST');
                 const intermediaryAddress = depositRes.depositAddress;
