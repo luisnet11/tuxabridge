@@ -283,8 +283,10 @@
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    tokenIn: tokenInSymbol,                        // ← AHORA USAMOS tokenIn/tokenOut
-                    tokenOut: tokenOutSymbol,
+                    tokenIn: tokenInSymbol,                  // ← nuevo campo
+                    tokenOut: tokenOutSymbol,                // ← nuevo campo
+                    originAsset: tokenInSymbol,              // ← campo antiguo obligatorio
+                    destinationAsset: tokenOutSymbol,        // ← campo antiguo obligatorio
                     originChain: CONFIG.tuxachain.chainId.toString(),
                     destinationChain: "aurora",
                     depositType: "ORIGIN_CHAIN",
