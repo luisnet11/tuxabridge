@@ -283,9 +283,9 @@
                     dry: false,
                     swapType: "EXACT_INPUT",
                     slippageTolerance: 100,
-                    originAsset: tokenInSymbol,
-                    destinationAsset: tokenOutSymbol,
-                    originChain: CONFIG.tuxachain.chainId.toString(), // 🔄 Usar ID de cadena
+                    tokenIn: tokenInSymbol,                        // ← AHORA USAMOS tokenIn/tokenOut
+                    tokenOut: tokenOutSymbol,
+                    originChain: CONFIG.tuxachain.chainId.toString(),
                     destinationChain: "aurora",
                     depositType: "ORIGIN_CHAIN",
                     amount: amountWei.toString(),
