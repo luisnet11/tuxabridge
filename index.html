@@ -7,7 +7,6 @@
     <title>Tuxachain - Aurora Intents Bridge</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     <style>
-        /* ========== ESTILOS (idénticos a la versión anterior) ========== */
         :root {
             --primary-color: #70ffaf;
             --primary-dark: #4bc985;
@@ -110,7 +109,9 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                proxy: 'https://tuxabridge-proxy.luisalfonzonet.workers.dev'
+                // Llamada directa a la API de Aurora (sin Worker)
+                baseUrl: 'https://intents-api.aurora.dev/api',
+                key: 'a1977096-6071-444f-9895-6525b15b3197'
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
@@ -221,9 +222,9 @@
             }
         }
 
-        // ============= API CALL (Worker proxy) =============
+        // ============= API CALL DIRECTA (sin Worker, con API key) =============
         async function apiCall(endpointPath, params = null, method = 'POST') {
-            const url = `${CONFIG.api.proxy}${endpointPath}`;
+            const url = `${CONFIG.api.baseUrl}${endpointPath}/${CONFIG.api.key}`;
             const options = {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -274,7 +275,7 @@
                     refundTo: userAddress.toLowerCase(),
                     refundType: "ORIGIN_CHAIN",
                     deadline: deadlineISO,
-                    referral: "tuxachain"
+                    referral: "tuxachain"   // Asegurado en minúsculas
                 };
                 const quoteRes = await apiCall('/quote', quoteReq, 'POST');
                 log("✅ Cotización obtenida.");
@@ -328,4 +329,4 @@
         btnSwap.addEventListener('click', executeSwap);
     </script>
 </body>
-                </html>
+</html>
