@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Protección extra (el Worker es la defensa real) -->
     <meta name="referrer" content="no-referrer">
     <title>Tuxachain - Aurora Intents Bridge</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
@@ -276,12 +275,11 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                // 👇 Worker que elimina Referer y añade la API key
                 proxy: 'https://tuxabridge-proxy.luisalfonzonet.workers.dev'
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
-                { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 18 },
+                { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 24 }, // ← 24 decimales
                 { symbol: 'AURORA', address: '0x8BEc47865aDe3B172A928df8f990Bc7f2A3b9f79', decimals: 18 },
                 { symbol: 'USDt', address: '0x80Da25Da4D783E57d2FCdA0436873A193a4BEccF', decimals: 6 }
             ]
@@ -318,7 +316,7 @@
                 tokenInSelect.add(new Option(t.symbol, t.address));
                 tokenOutSelect.add(new Option(t.symbol, t.address));
             });
-            tokenOutSelect.selectedIndex = 1; // NEAR por defecto
+            tokenOutSelect.selectedIndex = 1;
         }
 
         async function updateBalance() {
@@ -386,7 +384,7 @@
             }
         }
 
-        // ============= LLAMADA A LA API (usa Worker, sin API key, sin Referer) =============
+        // ============= API CALL (Worker proxy, sin Referer ni API key) =============
         async function apiCall(endpointPath, params = null, method = 'POST') {
             const url = `${CONFIG.api.proxy}${endpointPath}`;
             const options = {
@@ -405,7 +403,7 @@
             return response.json();
         }
 
-        // ============= FLUJO DEL SWAP =============
+        // ============= FLUJO SWAP =============
         async function executeSwap() {
             const amountIn = amountInInput.value;
             const tokenIn = tokenInSelect.value;
