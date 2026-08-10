@@ -6,8 +6,8 @@
     <meta name="referrer" content="no-referrer">
     <title>Tuxachain - Aurora Intents Bridge</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
-    
     <style>
+        /* ========== ESTILOS (idénticos a la versión anterior) ========== */
         :root {
             --primary-color: #70ffaf;
             --primary-dark: #4bc985;
@@ -21,199 +21,34 @@
             --console-bg: #1e1e1e;
             --console-text: #00ff00;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .app-container {
-            width: 100%;
-            max-width: 480px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-
-        .btn {
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: all 0.2s ease;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--border-color);
-            color: var(--text-main);
-        }
-
-        .btn-outline:hover:not(:disabled) {
-            border-color: var(--text-muted);
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: #000;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: var(--primary-dark);
-        }
-
-        .btn-large {
-            width: 100%;
-            padding: 16px;
-            font-size: 1.1rem;
-            margin-top: 10px;
-        }
-
-        .btn-small {
-            padding: 6px 12px;
-            font-size: 0.85rem;
-            margin-top: 8px;
-        }
-
-        .swap-card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .alert {
-            background: var(--error-bg);
-            color: var(--error-text);
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            text-align: center;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .input-group {
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-        }
-
-        .input-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .input-header label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .balance-text {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-
-        .balance-text:hover {
-            color: var(--text-main);
-            text-decoration: underline;
-        }
-
-        .input-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .input-row input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            font-size: 1.5rem;
-            color: var(--text-main);
-            width: 100%;
-            outline: none;
-        }
-
-        .input-row input:disabled {
-            color: var(--text-muted);
-        }
-
-        .input-row select {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background: var(--card-bg);
-            font-weight: 600;
-            cursor: pointer;
-            outline: none;
-        }
-
-        .swap-divider {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .logs-section h3 {
-            font-size: 1rem;
-            margin-bottom: 8px;
-        }
-
-        .logs-console {
-            background: var(--console-bg);
-            color: var(--console-text);
-            padding: 12px;
-            border-radius: 12px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            height: 150px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .app-container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 24px; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 1.5rem; font-weight: 700; }
+        .btn { cursor: pointer; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; font-size: 0.95rem; transition: all 0.2s ease; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-outline { background: transparent; border: 2px solid var(--border-color); color: var(--text-main); }
+        .btn-outline:hover:not(:disabled) { border-color: var(--text-muted); }
+        .btn-primary { background: var(--primary-color); color: #000; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+        .btn-large { width: 100%; padding: 16px; font-size: 1.1rem; margin-top: 10px; }
+        .btn-small { padding: 6px 12px; font-size: 0.85rem; margin-top: 8px; }
+        .swap-card { background: var(--card-bg); border-radius: 20px; padding: 24px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 16px; }
+        .alert { background: var(--error-bg); color: var(--error-text); padding: 12px; border-radius: 8px; font-size: 0.9rem; text-align: center; }
+        .hidden { display: none !important; }
+        .input-group { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; }
+        .input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .input-header label { font-size: 0.85rem; color: var(--text-muted); }
+        .balance-text { font-size: 0.85rem; color: var(--text-muted); cursor: pointer; font-weight: 500; transition: color 0.2s; }
+        .balance-text:hover { color: var(--text-main); text-decoration: underline; }
+        .input-row { display: flex; justify-content: space-between; gap: 12px; }
+        .input-row input { flex: 1; border: none; background: transparent; font-size: 1.5rem; color: var(--text-main); width: 100%; outline: none; }
+        .input-row input:disabled { color: var(--text-muted); }
+        .input-row select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); font-weight: 600; cursor: pointer; outline: none; }
+        .swap-divider { text-align: center; color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+        .logs-section h3 { font-size: 1rem; margin-bottom: 8px; }
+        .logs-console { background: var(--console-bg); color: var(--console-text); padding: 12px; border-radius: 12px; font-family: monospace; font-size: 0.85rem; height: 150px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -279,7 +114,7 @@
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
-                { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 24 }, // ← 24 decimales
+                { symbol: 'NEAR', address: '0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d', decimals: 24 },
                 { symbol: 'AURORA', address: '0x8BEc47865aDe3B172A928df8f990Bc7f2A3b9f79', decimals: 18 },
                 { symbol: 'USDt', address: '0x80Da25Da4D783E57d2FCdA0436873A193a4BEccF', decimals: 6 }
             ]
@@ -316,7 +151,7 @@
                 tokenInSelect.add(new Option(t.symbol, t.address));
                 tokenOutSelect.add(new Option(t.symbol, t.address));
             });
-            tokenOutSelect.selectedIndex = 1;
+            tokenOutSelect.selectedIndex = 1; // NEAR por defecto
         }
 
         async function updateBalance() {
@@ -329,7 +164,9 @@
                 rawBalance = ethers.formatUnits(balanceWei, tokenData.decimals);
                 const displayBalance = parseFloat(rawBalance).toLocaleString('en-US', { maximumFractionDigits: 6 });
                 userBalanceSpan.innerText = `Saldo: ${displayBalance} ${tokenData.symbol}`;
+                log(`💰 Saldo actualizado: ${displayBalance} ${tokenData.symbol}`);
             } catch (err) {
+                log(`❌ Error al obtener saldo de ${tokenInSelect.options[tokenInSelect.selectedIndex].text}: ${err.message}`);
                 userBalanceSpan.innerText = "Saldo: Error";
             }
         }
@@ -384,7 +221,7 @@
             }
         }
 
-        // ============= API CALL (Worker proxy, sin Referer ni API key) =============
+        // ============= API CALL (Worker proxy) =============
         async function apiCall(endpointPath, params = null, method = 'POST') {
             const url = `${CONFIG.api.proxy}${endpointPath}`;
             const options = {
@@ -491,4 +328,4 @@
         btnSwap.addEventListener('click', executeSwap);
     </script>
 </body>
-</html>
+                </html>
