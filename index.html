@@ -109,9 +109,7 @@
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
             },
             api: {
-                // Llamada directa a la API de Aurora (sin Worker)
-                baseUrl: 'https://intents-api.aurora.dev/api',
-                key: 'a1977096-6071-444f-9895-6525b15b3197'
+                proxy: 'https://dawn-sky-f9b8.luisalfonzonet.workers.dev'  // 👈 NUEVO WORKER
             },
             tokens: [
                 { symbol: 'ETH', address: '0x5a524251df27A25AC6b9964a93E1c23AD692688D', decimals: 18 },
@@ -152,7 +150,7 @@
                 tokenInSelect.add(new Option(t.symbol, t.address));
                 tokenOutSelect.add(new Option(t.symbol, t.address));
             });
-            tokenOutSelect.selectedIndex = 1; // NEAR por defecto
+            tokenOutSelect.selectedIndex = 1;
         }
 
         async function updateBalance() {
@@ -222,9 +220,9 @@
             }
         }
 
-        // ============= API CALL DIRECTA (sin Worker, con API key) =============
+        // ============= API CALL (proxy Worker) =============
         async function apiCall(endpointPath, params = null, method = 'POST') {
-            const url = `${CONFIG.api.baseUrl}${endpointPath}/${CONFIG.api.key}`;
+            const url = `${CONFIG.api.proxy}${endpointPath}`;
             const options = {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -275,7 +273,7 @@
                     refundTo: userAddress.toLowerCase(),
                     refundType: "ORIGIN_CHAIN",
                     deadline: deadlineISO,
-                    referral: "tuxachain"   // Asegurado en minúsculas
+                    referral: "tuxachain"
                 };
                 const quoteRes = await apiCall('/quote', quoteReq, 'POST');
                 log("✅ Cotización obtenida.");
@@ -329,4 +327,4 @@
         btnSwap.addEventListener('click', executeSwap);
     </script>
 </body>
-</html>
+    </html>
