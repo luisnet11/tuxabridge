@@ -8,15 +8,13 @@ const CONFIG = {
     nearNodeUrl: "https://rpc.mainnet.near.org",
     tokens: {
         NEAR: {
-            nearContract: "wrap.near", // Usado internamente para el puente
+            nearContract: "wrap.near",
             evmContract: "0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d",
-            decimals: 24,
-            isNative: true // Bandera especial para leer el saldo base
+            isNative: true
         },
         USDT: {
             nearContract: "usdt.tether-token.near",
             evmContract: "0x80da25da4d783e57d2fcda0436873a193a4beccf",
-            decimals: 6,
             isNative: false
         }
     }
@@ -28,18 +26,24 @@ let evmSigner = null;
 let nearAccountId = null;
 let evmAddress = null;
 
+// ABI extendido para poder leer decimales dinámicamente
+const erc20Abi = [
+    "function balanceOf(address owner) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+    "function withdraw(string memory receiver_id, uint256 amount) public"
+];
+
 // ==========================================
-// 1. CONEXIÓN BILLETERA NEAR
+// 1 & 2. CONEXIONES BILLETERAS
 // ==========================================
 async function initNear() {
     const { connect, keyStores, WalletConnection } = window.nearApi;
-    const nearConfig = {
+    const near = await connect({
         networkId: "mainnet",
         nodeUrl: CONFIG.nearNodeUrl,
         walletUrl: "https://app.mynearwallet.com",
         keyStore: new keyStores.BrowserLocalStorageKeyStore()
-    };
-    const near = await connect(nearConfig);
+    });
     webWallet = new WalletConnection(near, "AuroraBridge");
 
     if (webWallet.isSignedIn()) {
@@ -51,7 +55,6 @@ async function initNear() {
     }
     updateUI();
 }
-
 setTimeout(initNear, 500);
 
 async function connectNear() {
@@ -66,9 +69,7 @@ async function connectNear() {
                         updateUI();
                         return;
                     }
-                } catch (e) {
-                    console.log("Meteor falló, usando web...");
-                }
+                } catch (e) { console.log("Meteor falló"); }
             }
             webWallet.requestSignIn(CONFIG.engineAccount, "Aurora Bridge");
         } else {
@@ -76,14 +77,9 @@ async function connectNear() {
             nearAccountId = null;
             updateUI();
         }
-    } catch (e) {
-        showMessage("Error NEAR: " + e.message, true);
-    }
+    } catch (e) { showMessage("Error NEAR: " + e.message, true); }
 }
 
-// ==========================================
-// 2. CONEXIÓN BILLETERA EVM
-// ==========================================
 async function connectEVM() {
     if (window.ethereum) {
         try {
@@ -99,16 +95,12 @@ async function connectEVM() {
                 showMessage("MetaMask conectado", false);
             }
             updateUI();
-        } catch (error) {
-            showMessage("Error EVM: Rechazado", true);
-        }
-    } else {
-        showMessage("No se detectó MetaMask", true);
-    }
+        } catch (error) { showMessage("Error EVM: Rechazado", true); }
+    } else { showMessage("No se detectó MetaMask", true); }
 }
 
 // ==========================================
-// 3. LECTURA DE SALDOS CORRECTA (NATIVO Y NEP-141)
+// 3. UI Y LECTURA DINÁMICA DE SALDOS
 // ==========================================
 async function updateUI() {
     document.getElementById("near-account").innerText = nearAccountId || "No conectado";
@@ -125,112 +117,70 @@ async function updateBalances() {
     document.getElementById("near-balance").innerText = `Cargando...`;
     document.getElementById("evm-balance").innerText = `Cargando...`;
 
-    // ------------------------------------
-    // LECTURA EN NEAR (Diferencia Nativo vs Token)
-    // ------------------------------------
-    if (nearAccountId) {
-        try {
-            const provider = new window.nearApi.providers.JsonRpcProvider({ url: CONFIG.nearNodeUrl });
-            
-            if (token.isNative) {
-                // Leer el saldo real de NEAR (Gas base)
-                const res = await provider.query({
-                    request_type: "view_account",
-                    account_id: nearAccountId,
-                    finality: "optimistic"
-                });
-                const balanceFormatted = ethers.formatUnits(res.amount, token.decimals);
-                document.getElementById("near-balance").innerText = `Saldo: ${parseFloat(balanceFormatted).toFixed(4)} ${selectedAsset}`;
-            } else {
-                // Leer token NEP-141 (Ej: USDT)
-                const argsBase64 = btoa(JSON.stringify({ account_id: nearAccountId }));
-                const res = await provider.query({
-                    request_type: "call_function",
-                    account_id: token.nearContract,
-                    method_name: "ft_balance_of",
-                    args_base64: argsBase64,
-                    finality: "optimistic"
-                });
-                const balanceStr = JSON.parse(new TextDecoder().decode(new Uint8Array(res.result)));
-                const balanceFormatted = ethers.formatUnits(balanceStr, token.decimals);
-                document.getElementById("near-balance").innerText = `Saldo: ${parseFloat(balanceFormatted).toFixed(4)} ${selectedAsset}`;
-            }
-        } catch (e) {
-            document.getElementById("near-balance").innerText = "Saldo: 0.00";
-        }
-    } else {
-        document.getElementById("near-balance").innerText = "Saldo: 0.00";
-    }
+    // 1. Obtener decimales de la EVM dinámicamente
+    let evmDecimals = 18; // Valor por defecto
+    try {
+        const rpcProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
+        const contract = new ethers.Contract(token.evmContract, erc20Abi, rpcProvider);
+        evmDecimals = Number(await contract.decimals());
+    } catch (e) { console.warn("No se pudieron leer los decimales de la EVM, usando 18"); }
 
-    // ------------------------------------
-    // LECTURA EN EVM (Siempre ERC-20)
-    // ------------------------------------
+    // 2. Saldo EVM
     if (evmAddress) {
         try {
             const rpcProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
-            const abi = ["function balanceOf(address owner) view returns (uint256)"];
-            const contract = new ethers.Contract(token.evmContract, abi, rpcProvider);
+            const contract = new ethers.Contract(token.evmContract, erc20Abi, rpcProvider);
             const balanceWei = await contract.balanceOf(evmAddress);
-            const balanceFormatted = ethers.formatUnits(balanceWei, token.decimals);
+            const balanceFormatted = ethers.formatUnits(balanceWei, evmDecimals);
             document.getElementById("evm-balance").innerText = `Saldo: ${parseFloat(balanceFormatted).toFixed(4)} ${selectedAsset}`;
-        } catch (e) {
-            document.getElementById("evm-balance").innerText = "Saldo: 0.00";
-        }
-    } else {
-         document.getElementById("evm-balance").innerText = "Saldo: 0.00";
-    }
+        } catch (e) { document.getElementById("evm-balance").innerText = "Saldo: 0.00"; }
+    } else { document.getElementById("evm-balance").innerText = "Saldo: 0.00"; }
+
+    // 3. Saldo NEAR
+    if (nearAccountId) {
+        try {
+            const provider = new window.nearApi.providers.JsonRpcProvider({ url: CONFIG.nearNodeUrl });
+            let nearDecimals = token.isNative ? 24 : (selectedAsset === 'USDT' ? 6 : 24);
+
+            if (token.isNative) {
+                const res = await provider.query({ request_type: "view_account", account_id: nearAccountId, finality: "optimistic" });
+                const balanceFormatted = ethers.formatUnits(res.amount, nearDecimals);
+                document.getElementById("near-balance").innerText = `Saldo: ${parseFloat(balanceFormatted).toFixed(4)} ${selectedAsset}`;
+            } else {
+                const argsBase64 = btoa(JSON.stringify({ account_id: nearAccountId }));
+                const res = await provider.query({ request_type: "call_function", account_id: token.nearContract, method_name: "ft_balance_of", args_base64: argsBase64, finality: "optimistic" });
+                const balanceStr = JSON.parse(new TextDecoder().decode(new Uint8Array(res.result)));
+                const balanceFormatted = ethers.formatUnits(balanceStr, nearDecimals);
+                document.getElementById("near-balance").innerText = `Saldo: ${parseFloat(balanceFormatted).toFixed(4)} ${selectedAsset}`;
+            }
+        } catch (e) { document.getElementById("near-balance").innerText = "Saldo: 0.00"; }
+    } else { document.getElementById("near-balance").innerText = "Saldo: 0.00"; }
 }
 
 // ==========================================
 // 4. FUNCIONES DE TRANSFERENCIA
 // ==========================================
 async function depositToVirtualChain() {
-    if (!nearAccountId || !evmAddress) return showMessage("Conecta ambas billeteras primero", true);
+    if (!nearAccountId || !evmAddress) return showMessage("Conecta ambas billeteras", true);
     const amount = document.getElementById("amount").value;
-    if (!amount || amount <= 0) return showMessage("Ingresa una cantidad válida", true);
+    if (!amount || amount <= 0) return showMessage("Ingresa cantidad válida", true);
 
     const asset = document.getElementById("asset-select").value;
     const token = CONFIG.tokens[asset];
     
     try {
-        showMessage("Aprueba la transacción en NEAR...");
-        const amountWei = ethers.parseUnits(amount.toString(), token.decimals).toString();
+        showMessage("Aprueba en NEAR...");
+        let nearDecimals = token.isNative ? 24 : (asset === 'USDT' ? 6 : 24);
+        const amountWei = ethers.parseUnits(amount.toString(), nearDecimals).toString();
 
         let actions = [];
-        
-        // Si es NEAR Nativo, necesitamos empaquetarlo (wrap) y enviarlo en la misma transacción
         if (token.isNative) {
             actions = [
-                {
-                    type: "FunctionCall",
-                    params: {
-                        methodName: "near_deposit",
-                        args: {},
-                        gas: "30000000000000",
-                        deposit: amountWei // Adjuntamos el NEAR real aquí
-                    }
-                },
-                {
-                    type: "FunctionCall",
-                    params: {
-                        methodName: "ft_transfer_call",
-                        args: { receiver_id: CONFIG.engineAccount, amount: amountWei, msg: evmAddress },
-                        gas: "60000000000000",
-                        deposit: "1" // Solo 1 yocto para seguridad
-                    }
-                }
+                { type: "FunctionCall", params: { methodName: "near_deposit", args: {}, gas: "30000000000000", deposit: amountWei } },
+                { type: "FunctionCall", params: { methodName: "ft_transfer_call", args: { receiver_id: CONFIG.engineAccount, amount: amountWei, msg: evmAddress }, gas: "60000000000000", deposit: "1" } }
             ];
         } else {
-            // Depósito normal de USDT
-            actions = [{
-                type: "FunctionCall",
-                params: {
-                    methodName: "ft_transfer_call",
-                    args: { receiver_id: CONFIG.engineAccount, amount: amountWei, msg: evmAddress },
-                    gas: "60000000000000",
-                    deposit: "1"
-                }
-            }];
+            actions = [{ type: "FunctionCall", params: { methodName: "ft_transfer_call", args: { receiver_id: CONFIG.engineAccount, amount: amountWei, msg: evmAddress }, gas: "60000000000000", deposit: "1" } }];
         }
 
         const tx = { receiverId: token.nearContract, actions: actions };
@@ -242,42 +192,39 @@ async function depositToVirtualChain() {
         } else {
             await webWallet.account().signAndSendTransaction(tx);
         }
-    } catch (e) {
-        showMessage("Error en depósito: Verifica tu saldo", true);
-        console.error(e);
-    }
+    } catch (e) { showMessage("Error en depósito", true); }
 }
 
 async function withdrawToNear() {
-    if (!nearAccountId || !evmAddress) return showMessage("Conecta ambas billeteras primero", true);
+    if (!nearAccountId || !evmAddress) return showMessage("Conecta ambas billeteras", true);
     const amount = document.getElementById("amount").value;
-    if (!amount || amount <= 0) return showMessage("Ingresa una cantidad válida", true);
+    if (!amount || amount <= 0) return showMessage("Ingresa cantidad válida", true);
 
     const asset = document.getElementById("asset-select").value;
     const token = CONFIG.tokens[asset];
 
     try {
-        showMessage("Firma el retiro en MetaMask...");
-        const abi = ["function withdraw(string memory receiver_id, uint256 amount) public"];
-        const contract = new ethers.Contract(token.evmContract, abi, evmSigner);
-        const amountWei = ethers.parseUnits(amount.toString(), token.decimals);
+        showMessage("Leyendo contrato en Virtual Chain...");
+        const contract = new ethers.Contract(token.evmContract, erc20Abi, evmSigner);
+        
+        // Obtenemos los decimales exactos del contrato antes de calcular
+        const evmDecimals = await contract.decimals();
+        const amountWei = ethers.parseUnits(amount.toString(), Number(evmDecimals));
 
-        // FORZAMOS GASPRICE: 0 para cadenas gratuitas de Aurora Cloud
+        showMessage("Firma el retiro en MetaMask...");
         const tx = await contract.withdraw(nearAccountId, amountWei, {
             gasLimit: 3000000,
             gasPrice: 0 
         });
         
-        showMessage("Procesando retiro en Virtual Chain...");
+        showMessage("Procesando retiro... (Puede tardar)");
         await tx.wait();
         
         showMessage("¡Retiro exitoso!");
         setTimeout(updateBalances, 3000);
     } catch (e) {
-        // Captura el error exacto y lo muestra en pantalla para poder diagnosticarlo si vuelve a fallar
-        const errMsg = e.info?.error?.message || e.reason || e.message || "Fallo desconocido";
-        showMessage("Error de retiro: " + errMsg, true);
-        console.error("Detalle del error:", e);
+        showMessage("Error de retiro (Verifica saldo/ACL)", true);
+        console.error("Detalle:", e);
     }
 }
 
@@ -285,4 +232,5 @@ function showMessage(msg, isError = false) {
     const el = document.getElementById("bridge-msg");
     el.innerText = msg;
     el.style.color = isError ? "#ef4444" : "#4ade80";
-}
+        }
+                
