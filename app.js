@@ -7,7 +7,7 @@ const CONFIG = {
     rpcUrl: "https://0x4e4542e3.rpc.aurora-cloud.dev",
     nearNodeUrl: "https://rpc.mainnet.near.org",
     tokens: {
-        NEAR: { // Usaremos wrap.near como el equivalente al ERC-20
+        NEAR: {
             nearContract: "wrap.near",
             evmContract: "0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d",
             decimals: 24
@@ -20,13 +20,14 @@ const CONFIG = {
     }
 };
 
+let webWallet = null;
 let nearWallet = null;
 let evmSigner = null;
 let nearAccountId = null;
 let evmAddress = null;
 
 // ==========================================
-// 1. CONEXIÓN BILLETERA NEAR (Soporta Meteor)
+// 1. CONEXIÓN BILLETERA NEAR (Corrección MyNearWallet vs Meteor)
 // ==========================================
 async function initNear() {
     const { connect, keyStores, WalletConnection } = window.nearApi;
@@ -37,42 +38,56 @@ async function initNear() {
         keyStore: new keyStores.BrowserLocalStorageKeyStore()
     };
     const near = await connect(nearConfig);
-    
-    // Prioriza la extensión de Meteor si Mises la inyecta
-    if (window.near && window.near.isMeteor) {
+    webWallet = new WalletConnection(near, "AuroraBridge");
+
+    // 1. Revisar si el usuario inició sesión con MyNearWallet
+    if (webWallet.isSignedIn()) {
+        nearWallet = webWallet;
+        nearAccountId = webWallet.getAccountId();
+    } 
+    // 2. Si no hay sesión web, revisar si Meteor está inyectado y conectado
+    else if (window.near && window.near.isMeteor && window.near.isSignedIn && window.near.isSignedIn()) {
         nearWallet = window.near;
-        if (nearWallet.isSignedIn()) nearAccountId = nearWallet.getAccountId();
-    } else {
-        nearWallet = new WalletConnection(near, "AuroraBridge");
-        if (nearWallet.isSignedIn()) nearAccountId = nearWallet.getAccountId();
+        nearAccountId = window.near.getAccountId();
     }
-    
+
     updateUI();
 }
-window.onload = initNear;
+
+// Retraso de 500ms para permitir que Mises inyecte las extensiones correctamente
+setTimeout(initNear, 500);
 
 async function connectNear() {
     try {
         if (!nearAccountId) {
+            // Intentar con Meteor primero si está disponible
             if (window.near && window.near.isMeteor) {
-                await window.near.requestSignIn({ contractId: CONFIG.engineAccount });
-                nearAccountId = window.near.getAccountId();
-            } else {
-                nearWallet.requestSignIn(CONFIG.engineAccount, "Aurora Bridge");
-                return; // La web recargará tras MyNearWallet
+                try {
+                    const res = await window.near.requestSignIn({ contractId: CONFIG.engineAccount });
+                    if (res) {
+                        nearWallet = window.near;
+                        nearAccountId = window.near.getAccountId();
+                        updateUI();
+                        return; // Detiene el código si Meteor funcionó
+                    }
+                } catch (e) {
+                    console.log("Meteor cancelado o falló, redirigiendo a MyNearWallet...");
+                }
             }
+            // Si Meteor falla o no está, usa MyNearWallet
+            webWallet.requestSignIn(CONFIG.engineAccount, "Aurora Bridge");
         } else {
-            nearWallet.signOut();
+            if (nearWallet && nearWallet.signOut) nearWallet.signOut();
             nearAccountId = null;
+            updateUI();
         }
-        updateUI();
     } catch (e) {
-        showMessage("Error al conectar NEAR", true);
+        showMessage("Error al conectar NEAR: " + e.message, true);
     }
 }
 
 // ==========================================
-// 2. CONEXIÓN BILLETERA EVM (MetaMask)
+// 2. CONEXIÓN BILLETERA EVM (MetaMask / Mises)
 // ==========================================
 async function connectEVM() {
     if (window.ethereum) {
@@ -84,14 +99,18 @@ async function connectEVM() {
             
             const network = await provider.getNetwork();
             if(Number(network.chainId) !== CONFIG.chainId) {
-                showMessage("Cambia a tu Virtual Chain en MetaMask", true);
+                showMessage("⚠️ Por favor cambia a tu Virtual Chain en MetaMask", true);
+            } else {
+                showMessage("MetaMask conectado", false);
             }
             updateUI();
         } catch (error) {
-            showMessage("Conexión EVM rechazada", true);
+            // Mostrará el error exacto (ej. User rejected request)
+            showMessage("Error EVM: " + (error.message || "Rechazado por el usuario"), true);
+            console.error(error);
         }
     } else {
-        showMessage("No se detectó MetaMask en Mises", true);
+        showMessage("No se detectó MetaMask en el navegador", true);
     }
 }
 
@@ -100,10 +119,10 @@ async function connectEVM() {
 // ==========================================
 async function updateUI() {
     document.getElementById("near-account").innerText = nearAccountId || "No conectado";
-    document.getElementById("btn-near").innerText = nearAccountId ? "Desconectar" : "Conectar NEAR";
+    document.getElementById("btn-near").innerText = nearAccountId ? "Desconectar NEAR" : "Conectar NEAR";
     
     document.getElementById("evm-account").innerText = evmAddress || "No conectado";
-    document.getElementById("btn-evm").innerText = evmAddress ? "Desconectar" : "Conectar EVM";
+    document.getElementById("btn-evm").innerText = evmAddress ? "Desconectar EVM" : "Conectar MetaMask";
 
     await updateBalances();
 }
@@ -112,7 +131,6 @@ async function updateBalances() {
     const selectedAsset = document.getElementById("asset-select").value;
     const token = CONFIG.tokens[selectedAsset];
 
-    // Reset saldos
     document.getElementById("near-balance").innerText = `Cargando...`;
     document.getElementById("evm-balance").innerText = `Cargando...`;
 
@@ -187,16 +205,16 @@ async function depositToVirtualChain() {
             }]
         };
 
-        // Soporte para Meteor Inyectado o API Web
-        if (window.near && window.near.isMeteor) {
-            await window.near.signAndSendTransaction(tx);
+        if (nearWallet.signAndSendTransaction && nearWallet.isMeteor) {
+            await nearWallet.signAndSendTransaction(tx);
             showMessage("¡Depósito exitoso!");
             setTimeout(updateBalances, 3000);
         } else {
-            await nearWallet.account().signAndSendTransaction(tx); // Redirige a Web Wallet
+            await webWallet.account().signAndSendTransaction(tx);
         }
     } catch (e) {
         showMessage("Error en el depósito. Revisa tu saldo.", true);
+        console.error(e);
     }
 }
 
@@ -214,14 +232,19 @@ async function withdrawToNear() {
         const contract = new ethers.Contract(token.evmContract, abi, evmSigner);
         const amountWei = ethers.parseUnits(amount.toString(), token.decimals);
 
-        const tx = await contract.withdraw(nearAccountId, amountWei);
+        // CORRECCIÓN: gasLimit manual forzado para saltarse el error de estimación en redes de gas gratuito
+        const tx = await contract.withdraw(nearAccountId, amountWei, {
+            gasLimit: 300000
+        });
+        
         showMessage("Procesando retiro en Virtual Chain...");
         await tx.wait();
         
         showMessage("¡Retiro exitoso!");
         setTimeout(updateBalances, 3000);
     } catch (e) {
-        showMessage("Transacción fallida. Verifica saldo y gas.", true);
+        showMessage("Error de retiro: " + (e.reason || e.message || "Fallo desconocido"), true);
+        console.error(e);
     }
 }
 
@@ -229,4 +252,4 @@ function showMessage(msg, isError = false) {
     const el = document.getElementById("bridge-msg");
     el.innerText = msg;
     el.style.color = isError ? "#ef4444" : "#4ade80";
-                        }
+            }
