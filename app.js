@@ -280,8 +280,11 @@ async function withdrawToNear() {
         showMessage("¡Retiro exitoso!");
         setTimeout(updateBalances, 3000);
     } catch (e) {
-        const errMsg = e.info?.error?.message || e.reason || e.message || "Fallo desconocido";
-        showMessage("Error de retiro: " + errMsg, true);
+        // CÓDIGO DE DIAGNÓSTICO PROFUNDO CON ALERTA EMERGENTE
+        const errorDetail = e.info?.error?.message || e.reason || e.message || JSON.stringify(e);
+        alert("🚨 DETALLE TÉCNICO DEL ERROR:\n\n" + errorDetail);
+        
+        showMessage("Revisa la alerta emergente para ver el error", true);
         console.error("Detalle del error:", e);
     }
 }
@@ -290,5 +293,4 @@ function showMessage(msg, isError = false) {
     const el = document.getElementById("bridge-msg");
     el.innerText = msg;
     el.style.color = isError ? "#ef4444" : "#4ade80";
-}
-
+                             }
