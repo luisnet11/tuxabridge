@@ -2,43 +2,66 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puente Virtual Chain</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aurora Cloud Bridge</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Librerías importadas vía CDN para no usar Node.js -->
     <script src="https://cdn.jsdelivr.net/npm/near-api-js@1.1.0/dist/near-api-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Puente a Virtual Chain</h1>
-        <p class="subtitle">Conecta tus billeteras para mover USDT</p>
+    <div class="app-container">
+        <header>
+            <h1>Omni<span class="highlight">Bridge</span> Mini</h1>
+            <p>Conecta, selecciona y transfiere</p>
+        </header>
 
-        <!-- Sección de Conexión -->
-        <div class="card">
-            <h2>1. Conectar Billeteras</h2>
-            <div class="wallet-buttons">
-                <button id="btn-near" onclick="connectNear()">Conectar NEAR</button>
-                <button id="btn-evm" onclick="connectEVM()">Conectar MetaMask</button>
+        <!-- Panel de Billeteras -->
+        <section class="wallet-panel">
+            <div class="wallet-card near-card">
+                <div class="wallet-header">
+                    <h3>NEAR Wallet</h3>
+                    <button id="btn-near" onclick="connectNear()">Conectar Meteor</button>
+                </div>
+                <div class="account-info" id="near-account">No conectado</div>
+                <div class="balance-info" id="near-balance">Saldo: 0.00</div>
             </div>
-            <div id="status" class="status-box">Billeteras no conectadas</div>
-        </div>
 
-        <!-- Sección de Puenteo -->
-        <div class="card">
-            <h2>2. Mover Fondos (USDT)</h2>
-            <input type="number" id="amount" placeholder="Cantidad de USDT" min="0.1" step="0.1">
+            <div class="wallet-card evm-card">
+                <div class="wallet-header">
+                    <h3>Virtual Chain</h3>
+                    <button id="btn-evm" onclick="connectEVM()">Conectar MetaMask</button>
+                </div>
+                <div class="account-info" id="evm-account">No conectado</div>
+                <div class="balance-info" id="evm-balance">Saldo: 0.00</div>
+            </div>
+        </section>
+
+        <!-- Panel de Transferencia -->
+        <section class="bridge-panel">
+            <div class="input-group">
+                <label for="asset-select">Activo a transferir</label>
+                <select id="asset-select" onchange="updateBalances()">
+                    <option value="NEAR">NEAR (Token)</option>
+                    <option value="USDT">USDT (Tether)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="amount">Cantidad</label>
+                <input type="number" id="amount" placeholder="0.00" min="0.0001" step="any">
+            </div>
             
-            <div class="bridge-buttons">
-                <button onclick="depositToVirtualChain()" class="btn-deposit">
-                    Depositar (NEAR ➔ Virtual Chain)
+            <div class="action-buttons">
+                <button onclick="depositToVirtualChain()" class="btn-primary">
+                    ⬇️ Enviar a Virtual Chain
                 </button>
-                <button onclick="withdrawToNear()" class="btn-withdraw">
-                    Retirar (Virtual Chain ➔ NEAR)
+                <button onclick="withdrawToNear()" class="btn-secondary">
+                    ⬆️ Retirar a NEAR
                 </button>
             </div>
-            <p id="bridge-msg" class="msg"></p>
-        </div>
+            
+            <div id="bridge-msg" class="status-message"></div>
+        </section>
     </div>
 
     <script src="app.js"></script>
